@@ -1,0 +1,320 @@
+from __future__ import annotations
+
+import base64
+import json
+import os
+import sys
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Iterable
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+
+RECREATION_API_BASE = "https://www.recreation.gov/api/camps/availability/campground"
+CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
+DEFAULT_SCAN_MONTHS = 6
+DEFAULT_STATE_PATH = Path("state/notified-openings.json")
+
+CAMPGROUNDS = {
+    "Upper Pines": "232447",
+    "North Pines": "232449",
+    "Lower Pines": "232450",
+}
+
+
+@dataclass(frozen=True)
+class Opening:
+    campground_name: str
+    campground_id: str
+    site: str
+    date: str
+    url: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.campground_id}|{self.site}|{self.date}"
+
+
+@dataclass(frozen=True)
+class Config:
+    clicksend_username: str | None
+    clicksend_api_key: str | None
+    phone_to: str | None
+    phone_from: str | None
+    dry_run: bool
+    scan_months: int
+    state_path: Path
+    request_timeout: int
+
+
+def load_config() -> Config:
+    scan_months_raw = os.getenv("SCAN_MONTHS", str(DEFAULT_SCAN_MONTHS))
+    try:
+        scan_months = max(1, int(scan_months_raw))
+    except ValueError as exc:
+        raise ValueError(f"Invalid SCAN_MONTHS value: {scan_months_raw}") from exc
+
+    return Config(
+        clicksend_username=os.getenv("CLICKSEND_USERNAME"),
+        clicksend_api_key=os.getenv("CLICKSEND_API_KEY"),
+        phone_to=os.getenv("PHONE_TO"),
+        phone_from=os.getenv("PHONE_FROM"),
+        dry_run=os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
+        scan_months=scan_months,
+        state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
+        request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
+    )
+
+
+def month_starts(today: date, count: int) -> list[date]:
+    months: list[date] = []
+    year = today.year
+    month = today.month
+    for offset in range(count):
+        month_index = month - 1 + offset
+        current_year = year + (month_index // 12)
+        current_month = (month_index % 12) + 1
+        months.append(date(current_year, current_month, 1))
+    return months
+
+
+def build_recreation_headers() -> dict[str, str]:
+    return {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://www.recreation.gov",
+        "Referer": "https://www.recreation.gov/",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/123.0.0.0 Safari/537.36"
+        ),
+    }
+
+
+def fetch_month(campground_id: str, start_day: date, timeout: int) -> dict:
+    params = urlencode({"start_date": f"{start_day.isoformat()}T00:00:00.000Z"})
+    url = f"{RECREATION_API_BASE}/{campground_id}/month?{params}"
+    request = Request(url, headers=build_recreation_headers())
+
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return json.load(response)
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Recreation.gov request failed for {campground_id} {start_day}: "
+            f"HTTP {exc.code} {body}"
+        ) from exc
+    except URLError as exc:
+        raise RuntimeError(
+            f"Recreation.gov request failed for {campground_id} {start_day}: {exc}"
+        ) from exc
+
+
+def parse_openings(campground_name: str, campground_id: str, payload: dict) -> list[Opening]:
+    openings: list[Opening] = []
+    campground_url = f"https://www.recreation.gov/camping/campgrounds/{campground_id}"
+    for campsite in payload.get("campsites", {}).values():
+        site = str(campsite.get("site", "unknown"))
+        for availability_date, status in campsite.get("availabilities", {}).items():
+            if status != "Available":
+                continue
+            openings.append(
+                Opening(
+                    campground_name=campground_name,
+                    campground_id=campground_id,
+                    site=site,
+                    date=availability_date[:10],
+                    url=campground_url,
+                )
+            )
+    return openings
+
+
+def collect_openings(config: Config, today: date | None = None) -> list[Opening]:
+    scan_from = today or date.today()
+    openings: list[Opening] = []
+
+    for campground_name, campground_id in CAMPGROUNDS.items():
+        for month_start in month_starts(scan_from, config.scan_months):
+            payload = fetch_month(campground_id, month_start, config.request_timeout)
+            openings.extend(parse_openings(campground_name, campground_id, payload))
+
+    return sorted(openings, key=lambda item: (item.date, item.campground_name, item.site))
+
+
+def load_state(path: Path) -> dict:
+    if not path.exists():
+        return {"version": 1, "active_openings": {}, "updated_at": None}
+
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def build_state(openings: Iterable[Opening]) -> dict:
+    opening_map = {
+        opening.key: {
+            "campground_name": opening.campground_name,
+            "campground_id": opening.campground_id,
+            "site": opening.site,
+            "date": opening.date,
+            "url": opening.url,
+        }
+        for opening in openings
+    }
+    return {
+        "version": 1,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "active_openings": opening_map,
+    }
+
+
+def save_state(path: Path, state: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(state, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def diff_new_openings(current: Iterable[Opening], previous_state: dict) -> list[Opening]:
+    previous = previous_state.get("active_openings", {})
+    return [opening for opening in current if opening.key not in previous]
+
+
+def format_opening_line(opening: Opening) -> str:
+    return f"{opening.campground_name} site {opening.site} {opening.date} {opening.url}"
+
+
+def chunk_messages(openings: Iterable[Opening], max_chars: int = 320) -> list[str]:
+    sorted_openings = sorted(openings, key=lambda item: (item.campground_name, item.date, item.site))
+    if not sorted_openings:
+        return []
+
+    header = "Yosemite openings:"
+    messages: list[str] = []
+    current = header
+
+    for opening in sorted_openings:
+        line = format_opening_line(opening)
+        candidate = f"{current}\n{line}"
+        if len(candidate) <= max_chars:
+            current = candidate
+            continue
+
+        if current != header:
+            messages.append(current)
+            current = header
+
+        if len(f"{header}\n{line}") <= max_chars:
+            current = f"{header}\n{line}"
+            continue
+
+        # If a single line is too long, truncate the URL first to keep the alert readable.
+        truncated = line[: max_chars - len(header) - 4] + "..."
+        messages.append(f"{header}\n{truncated}")
+        current = header
+
+    if current != header:
+        messages.append(current)
+
+    return messages
+
+
+def build_clicksend_payload(messages: Iterable[str], config: Config) -> dict:
+    payload_messages = []
+    for body in messages:
+        message = {
+            "source": "python",
+            "body": body,
+            "to": config.phone_to,
+        }
+        if config.phone_from:
+            message["from"] = config.phone_from
+        payload_messages.append(message)
+    return {"messages": payload_messages}
+
+
+def send_clicksend(messages: list[str], config: Config) -> dict:
+    if not config.clicksend_username or not config.clicksend_api_key or not config.phone_to:
+        raise RuntimeError(
+            "Missing ClickSend configuration. Set CLICKSEND_USERNAME, "
+            "CLICKSEND_API_KEY, and PHONE_TO."
+        )
+
+    payload = build_clicksend_payload(messages, config)
+    credentials = f"{config.clicksend_username}:{config.clicksend_api_key}".encode("utf-8")
+    auth_header = base64.b64encode(credentials).decode("ascii")
+    request = Request(
+        CLICKSEND_SMS_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Basic {auth_header}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=config.request_timeout) as response:
+            parsed = json.load(response)
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"ClickSend send failed: HTTP {exc.code} {body}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"ClickSend send failed: {exc}") from exc
+
+    if parsed.get("response_code") != "SUCCESS":
+        raise RuntimeError(f"ClickSend send failed: {json.dumps(parsed, sort_keys=True)}")
+
+    statuses = [item.get("status") for item in parsed.get("data", {}).get("messages", [])]
+    allowed = {"SUCCESS", "QUEUED"}
+    if statuses and any(status not in allowed for status in statuses):
+        raise RuntimeError(f"ClickSend reported non-success status: {statuses}")
+
+    return parsed
+
+
+def log_openings(label: str, openings: Iterable[Opening]) -> None:
+    items = list(openings)
+    print(f"{label}: {len(items)}")
+    for opening in items:
+        print(f"  - {format_opening_line(opening)}")
+
+
+def main() -> int:
+    config = load_config()
+    current_openings = collect_openings(config)
+    previous_state = load_state(config.state_path)
+    new_openings = diff_new_openings(current_openings, previous_state)
+
+    log_openings("Current openings", current_openings)
+    log_openings("New openings", new_openings)
+
+    if config.dry_run:
+        print("DRY_RUN enabled. Skipping SMS send and state write.")
+        return 0
+
+    if new_openings:
+        messages = chunk_messages(new_openings)
+        send_result = send_clicksend(messages, config)
+        queued = send_result.get("data", {}).get("queued_count")
+        print(f"ClickSend queued {queued} message(s).")
+    else:
+        print("No new openings detected.")
+
+    save_state(config.state_path, build_state(current_openings))
+    print(f"State saved to {config.state_path}.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:  # pragma: no cover
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise

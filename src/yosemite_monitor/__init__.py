@@ -1,0 +1,2 @@
+"""Yosemite camping monitor package."""
+
