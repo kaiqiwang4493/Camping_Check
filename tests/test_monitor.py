@@ -11,7 +11,9 @@ from yosemite_monitor.monitor import (
     Config,
     Opening,
     build_clicksend_payload,
+    build_summary_markdown,
     build_state,
+    clicksend_configured,
     chunk_messages,
     diff_new_openings,
     load_state,
@@ -111,6 +113,8 @@ class MonitorTests(unittest.TestCase):
             scan_months=12,
             state_path=Path("state.json"),
             request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
         )
         payload = build_clicksend_payload(["hello"], config)
         self.assertEqual(
@@ -145,6 +149,43 @@ class MonitorTests(unittest.TestCase):
             loaded = load_state(state_path)
             self.assertEqual(loaded["active_openings"], state["active_openings"])
             self.assertEqual(json.loads(state_path.read_text(encoding="utf-8"))["version"], 1)
+
+    def test_clicksend_configured_requires_all_required_values(self) -> None:
+        config = Config(
+            clicksend_username="user",
+            clicksend_api_key=None,
+            phone_to="+14155550123",
+            phone_from=None,
+            dry_run=False,
+            scan_months=6,
+            state_path=Path("state.json"),
+            request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
+        )
+        self.assertFalse(clicksend_configured(config))
+
+    def test_build_summary_markdown_includes_opening_table(self) -> None:
+        opening = Opening(
+            campground_name="North Pines",
+            campground_id="232449",
+            site="101",
+            date="2026-04-12",
+            url="https://www.recreation.gov/camping/campgrounds/232449",
+        )
+        summary = build_summary_markdown(
+            {
+                "generated_at": "2026-03-24T20:00:00+00:00",
+                "scan_months": 6,
+                "current_openings_count": 1,
+                "new_openings_count": 1,
+                "sms_status": "clicksend_not_configured",
+                "dry_run": False,
+            },
+            [opening],
+        )
+        self.assertIn("## Yosemite Camping Monitor", summary)
+        self.assertIn("| North Pines | 101 | 2026-04-12 |", summary)
 
 
 if __name__ == "__main__":

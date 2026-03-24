@@ -1,6 +1,6 @@
 # Yosemite Camping Monitor
 
-This project polls Recreation.gov for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, and `North Pines` campgrounds and sends SMS alerts through ClickSend when new openings appear.
+This project polls Recreation.gov for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, and `North Pines` campgrounds, records each run inside GitHub, and can optionally send SMS alerts through ClickSend when new openings appear.
 
 ## What it does
 
@@ -8,8 +8,10 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Checks the current month plus the next 5 months by default
 - Alerts only on newly appeared availability
 - Stores current active openings in a tracked state file
+- Writes a run summary that shows up in each GitHub Actions run
+- Can optionally append each run to a fixed GitHub Issue as a log thread
 - Supports `workflow_dispatch` for manual runs
-- Supports `DRY_RUN=true` for testing without sending SMS
+- Supports `DRY_RUN=true` for testing without sending SMS or updating state
 
 ## Campgrounds
 
@@ -28,7 +30,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 ## GitHub setup
 
 1. Create a GitHub repository and push this project.
-2. Add these repository secrets:
+2. If you want SMS alerts, add these repository secrets:
    - `CLICKSEND_USERNAME`
    - `CLICKSEND_API_KEY`
    - `PHONE_TO`
@@ -36,7 +38,10 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
    - `PHONE_FROM`
    - `SCAN_MONTHS`
    - `DRY_RUN`
+   - `LOG_ISSUE_NUMBER`
 4. Enable GitHub Actions for the repository.
+
+If you do not configure ClickSend secrets, the workflow still runs and writes results to GitHub without sending SMS.
 
 ## Local usage
 
@@ -63,6 +68,11 @@ DRY_RUN=true python3 -m yosemite_monitor
 - Recreation.gov requests are sent with browser-like headers because the API may reject generic clients.
 - The monitor stores only the openings that are active in the most recent successful run. If an opening disappears and later returns, it will alert again.
 - If a run fails before finishing, the state file is not updated to avoid suppressing future alerts.
+- Each successful run writes:
+  - `state/run-report.json`
+  - `state/run-summary.md`
+- The GitHub workflow publishes the Markdown summary to the Actions run page.
+- If `LOG_ISSUE_NUMBER` is configured, the workflow also posts the summary as a comment to that issue.
 
 ## ClickSend note
 

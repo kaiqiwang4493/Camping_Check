@@ -48,6 +48,8 @@ class Config:
     scan_months: int
     state_path: Path
     request_timeout: int
+    report_path: Path
+    summary_path: Path
 
 
 def load_config() -> Config:
@@ -66,6 +68,8 @@ def load_config() -> Config:
         scan_months=scan_months,
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
         request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
+        report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
+        summary_path=Path(os.getenv("SUMMARY_PATH", "state/run-summary.md")),
     )
 
 
@@ -238,13 +242,24 @@ def build_clicksend_payload(messages: Iterable[str], config: Config) -> dict:
     return {"messages": payload_messages}
 
 
-def send_clicksend(messages: list[str], config: Config) -> dict:
-    if not config.clicksend_username or not config.clicksend_api_key or not config.phone_to:
-        raise RuntimeError(
-            "Missing ClickSend configuration. Set CLICKSEND_USERNAME, "
-            "CLICKSEND_API_KEY, and PHONE_TO."
-        )
+def clicksend_configured(config: Config) -> bool:
+    values = [config.clicksend_username, config.clicksend_api_key, config.phone_to]
+    return all(values)
 
+
+def validate_clicksend_config(config: Config) -> None:
+    values = {
+        "CLICKSEND_USERNAME": config.clicksend_username,
+        "CLICKSEND_API_KEY": config.clicksend_api_key,
+        "PHONE_TO": config.phone_to,
+    }
+    provided = {name: value for name, value in values.items() if value}
+    if provided and len(provided) != len(values):
+        missing = [name for name, value in values.items() if not value]
+        raise RuntimeError(f"Incomplete ClickSend configuration. Missing: {', '.join(missing)}")
+
+
+def send_clicksend(messages: list[str], config: Config) -> dict:
     payload = build_clicksend_payload(messages, config)
     credentials = f"{config.clicksend_username}:{config.clicksend_api_key}".encode("utf-8")
     auth_header = base64.b64encode(credentials).decode("ascii")
@@ -286,8 +301,82 @@ def log_openings(label: str, openings: Iterable[Opening]) -> None:
         print(f"  - {format_opening_line(opening)}")
 
 
+def build_run_report(
+    *,
+    config: Config,
+    current_openings: list[Opening],
+    new_openings: list[Opening],
+    sms_status: str,
+    sms_messages_sent: int,
+) -> dict:
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "scan_months": config.scan_months,
+        "dry_run": config.dry_run,
+        "clicksend_configured": clicksend_configured(config),
+        "sms_status": sms_status,
+        "sms_messages_sent": sms_messages_sent,
+        "current_openings_count": len(current_openings),
+        "new_openings_count": len(new_openings),
+        "new_openings": [
+            {
+                "campground_name": opening.campground_name,
+                "site": opening.site,
+                "date": opening.date,
+                "url": opening.url,
+            }
+            for opening in new_openings
+        ],
+    }
+
+
+def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
+    lines = [
+        "## Yosemite Camping Monitor",
+        "",
+        f"- Generated at (UTC): `{report['generated_at']}`",
+        f"- Scan window: current month + next `{report['scan_months'] - 1}` month(s)",
+        f"- Current openings found: `{report['current_openings_count']}`",
+        f"- New openings found: `{report['new_openings_count']}`",
+        f"- SMS status: `{report['sms_status']}`",
+        f"- Dry run: `{report['dry_run']}`",
+        "",
+    ]
+    if new_openings:
+        lines.extend(
+            [
+                "### New openings",
+                "",
+                "| Campground | Site | Date | Link |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for opening in new_openings:
+            lines.append(
+                f"| {opening.campground_name} | {opening.site} | {opening.date} | "
+                f"[Recreation.gov]({opening.url}) |"
+            )
+    else:
+        lines.extend(["### New openings", "", "No new openings in this run."])
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
 def main() -> int:
     config = load_config()
+    validate_clicksend_config(config)
     current_openings = collect_openings(config)
     previous_state = load_state(config.state_path)
     new_openings = diff_new_openings(current_openings, previous_state)
@@ -295,20 +384,41 @@ def main() -> int:
     log_openings("Current openings", current_openings)
     log_openings("New openings", new_openings)
 
-    if config.dry_run:
-        print("DRY_RUN enabled. Skipping SMS send and state write.")
-        return 0
+    sms_status = "not_attempted"
+    sms_messages_sent = 0
 
-    if new_openings:
+    if config.dry_run:
+        sms_status = "dry_run_skipped"
+        print("DRY_RUN enabled. Skipping SMS send and state write.")
+    elif new_openings and clicksend_configured(config):
         messages = chunk_messages(new_openings)
         send_result = send_clicksend(messages, config)
         queued = send_result.get("data", {}).get("queued_count")
+        sms_messages_sent = len(messages)
+        sms_status = "sent"
         print(f"ClickSend queued {queued} message(s).")
+    elif new_openings and not clicksend_configured(config):
+        sms_status = "clicksend_not_configured"
+        print("New openings detected, but ClickSend is not configured. Logging only.")
     else:
+        sms_status = "no_new_openings"
         print("No new openings detected.")
 
-    save_state(config.state_path, build_state(current_openings))
-    print(f"State saved to {config.state_path}.")
+    report = build_run_report(
+        config=config,
+        current_openings=current_openings,
+        new_openings=new_openings,
+        sms_status=sms_status,
+        sms_messages_sent=sms_messages_sent,
+    )
+    write_json(config.report_path, report)
+    write_text(config.summary_path, build_summary_markdown(report, new_openings))
+    print(f"Run report written to {config.report_path}.")
+    print(f"Run summary written to {config.summary_path}.")
+
+    if not config.dry_run:
+        save_state(config.state_path, build_state(current_openings))
+        print(f"State saved to {config.state_path}.")
     return 0
 
 
