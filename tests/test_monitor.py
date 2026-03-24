@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from datetime import date
 from pathlib import Path
@@ -14,9 +15,11 @@ from yosemite_monitor.monitor import (
     build_summary_markdown,
     build_state,
     clicksend_configured,
+    clicksend_partially_configured,
     chunk_messages,
     diff_new_openings,
     load_state,
+    load_config,
     month_starts,
     parse_openings,
     save_state,
@@ -164,6 +167,7 @@ class MonitorTests(unittest.TestCase):
             summary_path=Path("summary.md"),
         )
         self.assertFalse(clicksend_configured(config))
+        self.assertTrue(clicksend_partially_configured(config))
 
     def test_build_summary_markdown_includes_opening_table(self) -> None:
         opening = Opening(
@@ -181,11 +185,26 @@ class MonitorTests(unittest.TestCase):
                 "new_openings_count": 1,
                 "sms_status": "clicksend_not_configured",
                 "dry_run": False,
+                "clicksend_configured": False,
+                "clicksend_partially_configured": True,
             },
             [opening],
         )
         self.assertIn("## Yosemite Camping Monitor", summary)
         self.assertIn("| North Pines | 101 | 2026-04-12 |", summary)
+        self.assertIn("partially configured", summary)
+
+    def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
+        previous = os.environ.get("SCAN_MONTHS")
+        try:
+            os.environ["SCAN_MONTHS"] = ""
+            config = load_config()
+        finally:
+            if previous is None:
+                os.environ.pop("SCAN_MONTHS", None)
+            else:
+                os.environ["SCAN_MONTHS"] = previous
+        self.assertEqual(config.scan_months, 6)
 
 
 if __name__ == "__main__":

@@ -53,7 +53,7 @@ class Config:
 
 
 def load_config() -> Config:
-    scan_months_raw = os.getenv("SCAN_MONTHS", str(DEFAULT_SCAN_MONTHS))
+    scan_months_raw = os.getenv("SCAN_MONTHS", "").strip() or str(DEFAULT_SCAN_MONTHS)
     try:
         scan_months = max(1, int(scan_months_raw))
     except ValueError as exc:
@@ -247,16 +247,14 @@ def clicksend_configured(config: Config) -> bool:
     return all(values)
 
 
-def validate_clicksend_config(config: Config) -> None:
+def clicksend_partially_configured(config: Config) -> bool:
     values = {
         "CLICKSEND_USERNAME": config.clicksend_username,
         "CLICKSEND_API_KEY": config.clicksend_api_key,
         "PHONE_TO": config.phone_to,
     }
     provided = {name: value for name, value in values.items() if value}
-    if provided and len(provided) != len(values):
-        missing = [name for name, value in values.items() if not value]
-        raise RuntimeError(f"Incomplete ClickSend configuration. Missing: {', '.join(missing)}")
+    return bool(provided) and len(provided) != len(values)
 
 
 def send_clicksend(messages: list[str], config: Config) -> dict:
@@ -314,6 +312,7 @@ def build_run_report(
         "scan_months": config.scan_months,
         "dry_run": config.dry_run,
         "clicksend_configured": clicksend_configured(config),
+        "clicksend_partially_configured": clicksend_partially_configured(config),
         "sms_status": sms_status,
         "sms_messages_sent": sms_messages_sent,
         "current_openings_count": len(current_openings),
@@ -339,9 +338,17 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
         f"- Current openings found: `{report['current_openings_count']}`",
         f"- New openings found: `{report['new_openings_count']}`",
         f"- SMS status: `{report['sms_status']}`",
+        f"- ClickSend configured: `{report['clicksend_configured']}`",
         f"- Dry run: `{report['dry_run']}`",
         "",
     ]
+    if report["clicksend_partially_configured"]:
+        lines.extend(
+            [
+                "> Warning: ClickSend secrets are only partially configured. SMS was skipped.",
+                "",
+            ]
+        )
     if new_openings:
         lines.extend(
             [
@@ -376,7 +383,6 @@ def write_json(path: Path, payload: dict) -> None:
 
 def main() -> int:
     config = load_config()
-    validate_clicksend_config(config)
     current_openings = collect_openings(config)
     previous_state = load_state(config.state_path)
     new_openings = diff_new_openings(current_openings, previous_state)
@@ -390,6 +396,9 @@ def main() -> int:
     if config.dry_run:
         sms_status = "dry_run_skipped"
         print("DRY_RUN enabled. Skipping SMS send and state write.")
+    elif clicksend_partially_configured(config):
+        sms_status = "clicksend_partial_config_skipped"
+        print("ClickSend is only partially configured. Skipping SMS and logging only.")
     elif new_openings and clicksend_configured(config):
         messages = chunk_messages(new_openings)
         send_result = send_clicksend(messages, config)
