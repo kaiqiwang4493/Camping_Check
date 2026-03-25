@@ -59,6 +59,17 @@ class MonitorTests(unittest.TestCase):
                 )
             ],
         )
+        self.assertEqual(openings[0].day_type, "Weekend")
+
+    def test_day_type_treats_friday_as_weekend(self) -> None:
+        opening = Opening(
+            campground_name="Upper Pines",
+            campground_id="232447",
+            site="044",
+            date="2026-04-10",
+            url="https://www.recreation.gov/camping/campgrounds/232447",
+        )
+        self.assertEqual(opening.day_type, "Weekend")
 
     def test_diff_new_openings_only_returns_unseen_keys(self) -> None:
         existing = build_state(
@@ -191,7 +202,7 @@ class MonitorTests(unittest.TestCase):
             [opening],
         )
         self.assertIn("## Yosemite Camping Monitor", summary)
-        self.assertIn("| North Pines | 101 | 2026-04-12 |", summary)
+        self.assertIn("| North Pines | 101 | 2026-04-12 | Weekend |", summary)
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:

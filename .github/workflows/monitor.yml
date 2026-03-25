@@ -60,6 +60,11 @@ jobs:
           script: |
             const fs = require('fs');
             const issueNumber = Number(process.env.LOG_ISSUE_NUMBER);
+            const report = JSON.parse(fs.readFileSync('state/run-report.json', 'utf8'));
+            if (!report.new_openings_count) {
+              core.info('No new openings in this run. Skipping issue comment.');
+              return;
+            }
             const body = fs.readFileSync('state/run-summary.md', 'utf8');
             await github.rest.issues.createComment({
               owner: context.repo.owner,

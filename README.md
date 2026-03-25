@@ -72,7 +72,7 @@ DRY_RUN=true python3 -m yosemite_monitor
   - `state/run-report.json`
   - `state/run-summary.md`
 - The GitHub workflow publishes the Markdown summary to the Actions run page.
-- If `LOG_ISSUE_NUMBER` is configured, the workflow also posts the summary as a comment to that issue.
+- If `LOG_ISSUE_NUMBER` is configured, the workflow posts a comment to that issue only when new openings are found.
 
 ## ClickSend note
 

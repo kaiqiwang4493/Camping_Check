@@ -37,6 +37,11 @@ class Opening:
     def key(self) -> str:
         return f"{self.campground_id}|{self.site}|{self.date}"
 
+    @property
+    def day_type(self) -> str:
+        opening_date = date.fromisoformat(self.date)
+        return "Weekend" if opening_date.weekday() >= 4 else "Weekday"
+
 
 @dataclass(frozen=True)
 class Config:
@@ -190,7 +195,10 @@ def diff_new_openings(current: Iterable[Opening], previous_state: dict) -> list[
 
 
 def format_opening_line(opening: Opening) -> str:
-    return f"{opening.campground_name} site {opening.site} {opening.date} {opening.url}"
+    return (
+        f"{opening.campground_name} site {opening.site} "
+        f"{opening.date} ({opening.day_type}) {opening.url}"
+    )
 
 
 def chunk_messages(openings: Iterable[Opening], max_chars: int = 320) -> list[str]:
@@ -322,6 +330,7 @@ def build_run_report(
                 "campground_name": opening.campground_name,
                 "site": opening.site,
                 "date": opening.date,
+                "day_type": opening.day_type,
                 "url": opening.url,
             }
             for opening in new_openings
@@ -354,13 +363,14 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
             [
                 "### New openings",
                 "",
-                "| Campground | Site | Date | Link |",
-                "| --- | --- | --- | --- |",
+                "| Campground | Site | Date | Day Type | Link |",
+                "| --- | --- | --- | --- | --- |",
             ]
         )
         for opening in new_openings:
             lines.append(
                 f"| {opening.campground_name} | {opening.site} | {opening.date} | "
+                f"{opening.day_type} | "
                 f"[Recreation.gov]({opening.url}) |"
             )
     else:
