@@ -6,8 +6,36 @@
       "date": "2026-04-01",
       "site": "008",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "232447|074|2026-03-30": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-03-30",
+      "site": "074",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "232447|074|2026-03-31": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-03-31",
+      "site": "074",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "232447|074|2026-04-01": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-01",
+      "site": "074",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "232447|074|2026-04-02": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-02",
+      "site": "074",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
     }
   },
-  "updated_at": "2026-03-25T20:04:04.053515+00:00",
+  "updated_at": "2026-03-25T20:53:22.280270+00:00",
   "version": 1
 }
