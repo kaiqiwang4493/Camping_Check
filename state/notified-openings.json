@@ -1,13 +1,20 @@
 {
   "active_openings": {
-    "232447|008|2026-04-01": {
+    "232447|003|2026-03-31": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
-      "date": "2026-04-01",
-      "site": "008",
+      "date": "2026-03-31",
+      "site": "003",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "232447|043|2026-03-25": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-03-25",
+      "site": "043",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     }
   },
-  "updated_at": "2026-03-25T22:04:57.596493+00:00",
+  "updated_at": "2026-03-25T22:53:05.051545+00:00",
   "version": 1
 }
