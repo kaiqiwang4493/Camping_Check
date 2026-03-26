@@ -1,6 +1,6 @@
 # Yosemite Camping Monitor
 
-This project polls Recreation.gov for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, and `North Pines` campgrounds, records each run inside GitHub, and can optionally send SMS alerts through ClickSend when new openings appear.
+This project polls Recreation.gov for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, and `North Pines` campgrounds, records each run inside GitHub, and can optionally send alerts through ClickSend SMS and Gmail SMTP email when new openings appear.
 
 ## What it does
 
@@ -10,8 +10,9 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Stores current active openings in a tracked state file
 - Writes a run summary that shows up in each GitHub Actions run
 - Can optionally append each run to a fixed GitHub Issue as a log thread
+- Can optionally send Gmail SMTP email when new openings appear
 - Supports `workflow_dispatch` for manual runs
-- Supports `DRY_RUN=true` for testing without sending SMS or updating state
+- Supports `DRY_RUN=true` for testing without sending notifications or updating state
 
 ## Campgrounds
 
@@ -34,14 +35,19 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
    - `CLICKSEND_USERNAME`
    - `CLICKSEND_API_KEY`
    - `PHONE_TO`
-3. Optionally add these repository variables or secrets:
+3. If you want Gmail email alerts, add these repository secrets:
+   - `GMAIL_SMTP_USER`
+   - `GMAIL_SMTP_APP_PASSWORD`
+   - `EMAIL_TO`
+   - optional `EMAIL_FROM`
+4. Optionally add these repository variables or secrets:
    - `PHONE_FROM`
    - `SCAN_MONTHS`
    - `DRY_RUN`
    - `LOG_ISSUE_NUMBER`
-4. Enable GitHub Actions for the repository.
+5. Enable GitHub Actions for the repository.
 
-If you do not configure ClickSend secrets, the workflow still runs and writes results to GitHub without sending SMS.
+If you do not configure ClickSend or Gmail secrets, the workflow still runs and writes results to GitHub without sending notifications.
 
 ## Local usage
 
@@ -73,6 +79,13 @@ DRY_RUN=true python3 -m yosemite_monitor
   - `state/run-summary.md`
 - The GitHub workflow publishes the Markdown summary to the Actions run page.
 - If `LOG_ISSUE_NUMBER` is configured, the workflow posts a comment to that issue only when new openings are found.
+- Issue comments and summaries include both the day name and the `Weekend`/`Weekday` classification.
+
+## Gmail note
+
+- Gmail SMTP uses `smtp.gmail.com` on port `587` with STARTTLS.
+- Use a Google App Password for `GMAIL_SMTP_APP_PASSWORD`.
+- Email is sent only when new openings are found.
 
 ## ClickSend note
 

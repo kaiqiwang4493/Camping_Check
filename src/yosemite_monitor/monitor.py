@@ -3,9 +3,11 @@ from __future__ import annotations
 import base64
 import json
 import os
+import smtplib
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
 from urllib.error import HTTPError, URLError
@@ -38,6 +40,11 @@ class Opening:
         return f"{self.campground_id}|{self.site}|{self.date}"
 
     @property
+    def day_name(self) -> str:
+        opening_date = date.fromisoformat(self.date)
+        return opening_date.strftime("%A")
+
+    @property
     def day_type(self) -> str:
         opening_date = date.fromisoformat(self.date)
         return "Weekend" if opening_date.weekday() >= 4 else "Weekday"
@@ -49,6 +56,10 @@ class Config:
     clicksend_api_key: str | None
     phone_to: str | None
     phone_from: str | None
+    gmail_smtp_user: str | None
+    gmail_smtp_app_password: str | None
+    email_to: str | None
+    email_from: str | None
     dry_run: bool
     scan_months: int
     state_path: Path
@@ -69,6 +80,10 @@ def load_config() -> Config:
         clicksend_api_key=os.getenv("CLICKSEND_API_KEY"),
         phone_to=os.getenv("PHONE_TO"),
         phone_from=os.getenv("PHONE_FROM"),
+        gmail_smtp_user=os.getenv("GMAIL_SMTP_USER"),
+        gmail_smtp_app_password=os.getenv("GMAIL_SMTP_APP_PASSWORD"),
+        email_to=os.getenv("EMAIL_TO"),
+        email_from=os.getenv("EMAIL_FROM"),
         dry_run=os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
         scan_months=scan_months,
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
@@ -197,7 +212,7 @@ def diff_new_openings(current: Iterable[Opening], previous_state: dict) -> list[
 def format_opening_line(opening: Opening) -> str:
     return (
         f"{opening.campground_name} site {opening.site} "
-        f"{opening.date} ({opening.day_type}) {opening.url}"
+        f"{opening.date} {opening.day_name} ({opening.day_type}) {opening.url}"
     )
 
 
@@ -265,6 +280,21 @@ def clicksend_partially_configured(config: Config) -> bool:
     return bool(provided) and len(provided) != len(values)
 
 
+def email_configured(config: Config) -> bool:
+    values = [config.gmail_smtp_user, config.gmail_smtp_app_password, config.email_to]
+    return all(values)
+
+
+def email_partially_configured(config: Config) -> bool:
+    values = {
+        "GMAIL_SMTP_USER": config.gmail_smtp_user,
+        "GMAIL_SMTP_APP_PASSWORD": config.gmail_smtp_app_password,
+        "EMAIL_TO": config.email_to,
+    }
+    provided = {name: value for name, value in values.items() if value}
+    return bool(provided) and len(provided) != len(values)
+
+
 def send_clicksend(messages: list[str], config: Config) -> dict:
     payload = build_clicksend_payload(messages, config)
     credentials = f"{config.clicksend_username}:{config.clicksend_api_key}".encode("utf-8")
@@ -300,6 +330,46 @@ def send_clicksend(messages: list[str], config: Config) -> dict:
     return parsed
 
 
+def build_email_subject(new_openings: list[Opening]) -> str:
+    return f"Yosemite camping availability found: {len(new_openings)} new opening(s)"
+
+
+def build_email_body(report: dict, new_openings: list[Opening]) -> str:
+    lines = [
+        "Yosemite Camping Monitor",
+        "",
+        f"Generated at (UTC): {report['generated_at']}",
+        f"Scan window: current month + next {report['scan_months'] - 1} month(s)",
+        f"Current openings found: {report['current_openings_count']}",
+        f"New openings found: {report['new_openings_count']}",
+        "",
+    ]
+    if new_openings:
+        lines.extend(["New openings:", ""])
+        for opening in new_openings:
+            lines.append(
+                f"- {opening.campground_name} | site {opening.site} | "
+                f"{opening.date} | {opening.day_name} | {opening.day_type} | {opening.url}"
+            )
+    else:
+        lines.append("No new openings in this run.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def send_gmail_email(report: dict, new_openings: list[Opening], config: Config) -> None:
+    message = EmailMessage()
+    message["Subject"] = build_email_subject(new_openings)
+    message["From"] = config.email_from or config.gmail_smtp_user
+    message["To"] = config.email_to
+    message.set_content(build_email_body(report, new_openings))
+
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=config.request_timeout) as smtp:
+        smtp.starttls()
+        smtp.login(config.gmail_smtp_user, config.gmail_smtp_app_password)
+        smtp.send_message(message)
+
+
 def log_openings(label: str, openings: Iterable[Opening]) -> None:
     items = list(openings)
     print(f"{label}: {len(items)}")
@@ -314,6 +384,8 @@ def build_run_report(
     new_openings: list[Opening],
     sms_status: str,
     sms_messages_sent: int,
+    email_status: str,
+    email_messages_sent: int,
 ) -> dict:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -321,8 +393,12 @@ def build_run_report(
         "dry_run": config.dry_run,
         "clicksend_configured": clicksend_configured(config),
         "clicksend_partially_configured": clicksend_partially_configured(config),
+        "email_configured": email_configured(config),
+        "email_partially_configured": email_partially_configured(config),
         "sms_status": sms_status,
         "sms_messages_sent": sms_messages_sent,
+        "email_status": email_status,
+        "email_messages_sent": email_messages_sent,
         "current_openings_count": len(current_openings),
         "new_openings_count": len(new_openings),
         "new_openings": [
@@ -330,6 +406,7 @@ def build_run_report(
                 "campground_name": opening.campground_name,
                 "site": opening.site,
                 "date": opening.date,
+                "day_name": opening.day_name,
                 "day_type": opening.day_type,
                 "url": opening.url,
             }
@@ -348,6 +425,8 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
         f"- New openings found: `{report['new_openings_count']}`",
         f"- SMS status: `{report['sms_status']}`",
         f"- ClickSend configured: `{report['clicksend_configured']}`",
+        f"- Email status: `{report['email_status']}`",
+        f"- Email configured: `{report['email_configured']}`",
         f"- Dry run: `{report['dry_run']}`",
         "",
     ]
@@ -358,18 +437,26 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
                 "",
             ]
         )
+    if report["email_partially_configured"]:
+        lines.extend(
+            [
+                "> Warning: Gmail SMTP secrets are only partially configured. Email was skipped.",
+                "",
+            ]
+        )
     if new_openings:
         lines.extend(
             [
                 "### New openings",
                 "",
-                "| Campground | Site | Date | Day Type | Link |",
-                "| --- | --- | --- | --- | --- |",
+                "| Campground | Site | Date | Day | Day Type | Link |",
+                "| --- | --- | --- | --- | --- | --- |",
             ]
         )
         for opening in new_openings:
             lines.append(
                 f"| {opening.campground_name} | {opening.site} | {opening.date} | "
+                f"{opening.day_name} | "
                 f"{opening.day_type} | "
                 f"[Recreation.gov]({opening.url}) |"
             )
@@ -402,10 +489,13 @@ def main() -> int:
 
     sms_status = "not_attempted"
     sms_messages_sent = 0
+    email_status = "not_attempted"
+    email_messages_sent = 0
 
     if config.dry_run:
         sms_status = "dry_run_skipped"
-        print("DRY_RUN enabled. Skipping SMS send and state write.")
+        email_status = "dry_run_skipped"
+        print("DRY_RUN enabled. Skipping notifications and state write.")
     elif clicksend_partially_configured(config):
         sms_status = "clicksend_partial_config_skipped"
         print("ClickSend is only partially configured. Skipping SMS and logging only.")
@@ -429,6 +519,33 @@ def main() -> int:
         new_openings=new_openings,
         sms_status=sms_status,
         sms_messages_sent=sms_messages_sent,
+        email_status=email_status,
+        email_messages_sent=email_messages_sent,
+    )
+
+    if not config.dry_run and new_openings:
+        if email_partially_configured(config):
+            email_status = "email_partial_config_skipped"
+            print("Gmail SMTP is only partially configured. Skipping email and logging only.")
+        elif email_configured(config):
+            send_gmail_email(report, new_openings, config)
+            email_status = "sent"
+            email_messages_sent = 1
+            print("Gmail email sent.")
+        else:
+            email_status = "not_configured"
+            print("Gmail SMTP is not configured. Skipping email and logging only.")
+    elif not config.dry_run:
+        email_status = "no_new_openings"
+
+    report = build_run_report(
+        config=config,
+        current_openings=current_openings,
+        new_openings=new_openings,
+        sms_status=sms_status,
+        sms_messages_sent=sms_messages_sent,
+        email_status=email_status,
+        email_messages_sent=email_messages_sent,
     )
     write_json(config.report_path, report)
     write_text(config.summary_path, build_summary_markdown(report, new_openings))

@@ -11,6 +11,8 @@ from yosemite_monitor.monitor import (
     CAMPGROUNDS,
     Config,
     Opening,
+    build_email_body,
+    build_email_subject,
     build_clicksend_payload,
     build_summary_markdown,
     build_state,
@@ -18,6 +20,8 @@ from yosemite_monitor.monitor import (
     clicksend_partially_configured,
     chunk_messages,
     diff_new_openings,
+    email_configured,
+    email_partially_configured,
     load_state,
     load_config,
     month_starts,
@@ -59,6 +63,7 @@ class MonitorTests(unittest.TestCase):
                 )
             ],
         )
+        self.assertEqual(openings[0].day_name, "Saturday")
         self.assertEqual(openings[0].day_type, "Weekend")
 
     def test_day_type_treats_friday_as_weekend(self) -> None:
@@ -69,6 +74,7 @@ class MonitorTests(unittest.TestCase):
             date="2026-04-10",
             url="https://www.recreation.gov/camping/campgrounds/232447",
         )
+        self.assertEqual(opening.day_name, "Friday")
         self.assertEqual(opening.day_type, "Weekend")
 
     def test_diff_new_openings_only_returns_unseen_keys(self) -> None:
@@ -123,6 +129,10 @@ class MonitorTests(unittest.TestCase):
             clicksend_api_key="key",
             phone_to="+14155550123",
             phone_from="CampAlert",
+            gmail_smtp_user=None,
+            gmail_smtp_app_password=None,
+            email_to=None,
+            email_from=None,
             dry_run=False,
             scan_months=12,
             state_path=Path("state.json"),
@@ -170,6 +180,10 @@ class MonitorTests(unittest.TestCase):
             clicksend_api_key=None,
             phone_to="+14155550123",
             phone_from=None,
+            gmail_smtp_user=None,
+            gmail_smtp_app_password=None,
+            email_to=None,
+            email_from=None,
             dry_run=False,
             scan_months=6,
             state_path=Path("state.json"),
@@ -179,6 +193,26 @@ class MonitorTests(unittest.TestCase):
         )
         self.assertFalse(clicksend_configured(config))
         self.assertTrue(clicksend_partially_configured(config))
+
+    def test_email_configured_requires_all_required_values(self) -> None:
+        config = Config(
+            clicksend_username=None,
+            clicksend_api_key=None,
+            phone_to=None,
+            phone_from=None,
+            gmail_smtp_user="user@gmail.com",
+            gmail_smtp_app_password=None,
+            email_to="dest@example.com",
+            email_from=None,
+            dry_run=False,
+            scan_months=6,
+            state_path=Path("state.json"),
+            request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
+        )
+        self.assertFalse(email_configured(config))
+        self.assertTrue(email_partially_configured(config))
 
     def test_build_summary_markdown_includes_opening_table(self) -> None:
         opening = Opening(
@@ -195,14 +229,17 @@ class MonitorTests(unittest.TestCase):
                 "current_openings_count": 1,
                 "new_openings_count": 1,
                 "sms_status": "clicksend_not_configured",
+                "email_status": "not_configured",
                 "dry_run": False,
                 "clicksend_configured": False,
                 "clicksend_partially_configured": True,
+                "email_configured": False,
+                "email_partially_configured": True,
             },
             [opening],
         )
         self.assertIn("## Yosemite Camping Monitor", summary)
-        self.assertIn("| North Pines | 101 | 2026-04-12 | Weekend |", summary)
+        self.assertIn("| North Pines | 101 | 2026-04-12 | Sunday | Weekend |", summary)
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
@@ -216,6 +253,29 @@ class MonitorTests(unittest.TestCase):
             else:
                 os.environ["SCAN_MONTHS"] = previous
         self.assertEqual(config.scan_months, 6)
+
+    def test_build_email_subject_and_body_include_day_name(self) -> None:
+        opening = Opening(
+            campground_name="North Pines",
+            campground_id="232449",
+            site="101",
+            date="2026-04-12",
+            url="https://www.recreation.gov/camping/campgrounds/232449",
+        )
+        report = {
+            "generated_at": "2026-03-25T00:00:00+00:00",
+            "scan_months": 6,
+            "current_openings_count": 1,
+            "new_openings_count": 1,
+        }
+        self.assertEqual(
+            build_email_subject([opening]),
+            "Yosemite camping availability found: 1 new opening(s)",
+        )
+        body = build_email_body(report, [opening])
+        self.assertIn("Sunday", body)
+        self.assertIn("Weekend", body)
+        self.assertIn("North Pines", body)
 
 
 if __name__ == "__main__":

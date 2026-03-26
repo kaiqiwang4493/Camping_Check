@@ -36,6 +36,10 @@ jobs:
           CLICKSEND_API_KEY: ${{ secrets.CLICKSEND_API_KEY }}
           PHONE_TO: ${{ secrets.PHONE_TO }}
           PHONE_FROM: ${{ secrets.PHONE_FROM }}
+          GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
+          GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           SCAN_MONTHS: ${{ vars.SCAN_MONTHS }}
           DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
