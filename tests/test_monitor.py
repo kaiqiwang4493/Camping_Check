@@ -25,6 +25,8 @@ from yosemite_monitor.monitor import (
     load_state,
     load_config,
     month_starts,
+    normalize_password_secret,
+    normalize_text_secret,
     parse_openings,
     save_state,
 )
@@ -276,6 +278,14 @@ class MonitorTests(unittest.TestCase):
         self.assertIn("Sunday", body)
         self.assertIn("Weekend", body)
         self.assertIn("North Pines", body)
+
+    def test_normalize_password_secret_removes_unicode_and_regular_spaces(self) -> None:
+        raw = "abcd\u00a0efgh ijkl\u202fmnop"
+        self.assertEqual(normalize_password_secret(raw), "abcdefghijklmnop")
+
+    def test_normalize_text_secret_strips_unicode_spaces(self) -> None:
+        raw = "\u00a0 user@gmail.com \u202f"
+        self.assertEqual(normalize_text_secret(raw), "user@gmail.com")
 
 
 if __name__ == "__main__":

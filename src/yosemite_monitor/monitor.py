@@ -26,6 +26,12 @@ CAMPGROUNDS = {
     "Lower Pines": "232450",
 }
 
+UNICODE_SPACE_TRANSLATION = {
+    ord("\u00a0"): " ",
+    ord("\u2007"): " ",
+    ord("\u202f"): " ",
+}
+
 
 @dataclass(frozen=True)
 class Opening:
@@ -76,14 +82,14 @@ def load_config() -> Config:
         raise ValueError(f"Invalid SCAN_MONTHS value: {scan_months_raw}") from exc
 
     return Config(
-        clicksend_username=os.getenv("CLICKSEND_USERNAME"),
-        clicksend_api_key=os.getenv("CLICKSEND_API_KEY"),
-        phone_to=os.getenv("PHONE_TO"),
-        phone_from=os.getenv("PHONE_FROM"),
-        gmail_smtp_user=os.getenv("GMAIL_SMTP_USER"),
-        gmail_smtp_app_password=os.getenv("GMAIL_SMTP_APP_PASSWORD"),
-        email_to=os.getenv("EMAIL_TO"),
-        email_from=os.getenv("EMAIL_FROM"),
+        clicksend_username=normalize_text_secret(os.getenv("CLICKSEND_USERNAME")),
+        clicksend_api_key=normalize_text_secret(os.getenv("CLICKSEND_API_KEY")),
+        phone_to=normalize_text_secret(os.getenv("PHONE_TO")),
+        phone_from=normalize_text_secret(os.getenv("PHONE_FROM")),
+        gmail_smtp_user=normalize_text_secret(os.getenv("GMAIL_SMTP_USER")),
+        gmail_smtp_app_password=normalize_password_secret(os.getenv("GMAIL_SMTP_APP_PASSWORD")),
+        email_to=normalize_text_secret(os.getenv("EMAIL_TO")),
+        email_from=normalize_text_secret(os.getenv("EMAIL_FROM")),
         dry_run=os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
         scan_months=scan_months,
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
@@ -91,6 +97,22 @@ def load_config() -> Config:
         report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
         summary_path=Path(os.getenv("SUMMARY_PATH", "state/run-summary.md")),
     )
+
+
+def normalize_text_secret(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.translate(UNICODE_SPACE_TRANSLATION).strip()
+    return normalized or None
+
+
+def normalize_password_secret(value: str | None) -> str | None:
+    normalized = normalize_text_secret(value)
+    if normalized is None:
+        return None
+    # Google app passwords are often shown in groups; remove all whitespace safely.
+    compact = "".join(normalized.split())
+    return compact or None
 
 
 def month_starts(today: date, count: int) -> list[date]:
