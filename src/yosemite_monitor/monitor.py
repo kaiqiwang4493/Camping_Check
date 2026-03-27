@@ -10,6 +10,9 @@ from datetime import date, datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
+
+from camply.containers.data_containers import SearchWindow
+from camply.search.search_usedirect import SearchReserveCalifornia
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -20,11 +23,32 @@ CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 
-CAMPGROUNDS = {
-    "Upper Pines": "232447",
-    "North Pines": "232449",
-    "Lower Pines": "232450",
-}
+RECREATION_GOV_CAMPGROUNDS = (
+    {
+        "park_name": "Yosemite National Park",
+        "campground_name": "Upper Pines",
+        "campground_id": "232447",
+    },
+    {
+        "park_name": "Yosemite National Park",
+        "campground_name": "North Pines",
+        "campground_id": "232449",
+    },
+    {
+        "park_name": "Yosemite National Park",
+        "campground_name": "Lower Pines",
+        "campground_id": "232450",
+    },
+)
+
+RESERVE_CALIFORNIA_CAMPGROUNDS = (
+    {
+        "park_name": "Morro Bay SP",
+        "park_id": 680,
+        "campground_name": "Upper Section",
+        "campground_id": 583,
+    },
+)
 
 UNICODE_SPACE_TRANSLATION = {
     ord("\u00a0"): " ",
@@ -35,15 +59,17 @@ UNICODE_SPACE_TRANSLATION = {
 
 @dataclass(frozen=True)
 class Opening:
+    park_name: str
     campground_name: str
     campground_id: str
+    provider: str
     site: str
     date: str
     url: str
 
     @property
     def key(self) -> str:
-        return f"{self.campground_id}|{self.site}|{self.date}"
+        return f"{self.provider}|{self.campground_id}|{self.site}|{self.date}"
 
     @property
     def day_name(self) -> str:
@@ -171,8 +197,10 @@ def parse_openings(campground_name: str, campground_id: str, payload: dict) -> l
                 continue
             openings.append(
                 Opening(
+                    park_name="Yosemite National Park",
                     campground_name=campground_name,
                     campground_id=campground_id,
+                    provider="Recreation.gov",
                     site=site,
                     date=availability_date[:10],
                     url=campground_url,
@@ -181,16 +209,73 @@ def parse_openings(campground_name: str, campground_id: str, payload: dict) -> l
     return openings
 
 
+def parse_recreation_openings(park_name: str, campground_name: str, campground_id: str, payload: dict) -> list[Opening]:
+    openings = parse_openings(campground_name, campground_id, payload)
+    return [
+        Opening(
+            park_name=park_name,
+            campground_name=item.campground_name,
+            campground_id=item.campground_id,
+            provider="Recreation.gov",
+            site=item.site,
+            date=item.date,
+            url=item.url,
+        )
+        for item in openings
+    ]
+
+
+def end_date_for_scan(today: date, scan_months: int) -> date:
+    return month_starts(today, scan_months + 1)[-1]
+
+
+def collect_reserve_california_openings(config: Config, today: date) -> list[Opening]:
+    scan_end = end_date_for_scan(today, config.scan_months)
+    search_window = SearchWindow(start_date=today, end_date=scan_end)
+    openings: list[Opening] = []
+
+    for campground in RESERVE_CALIFORNIA_CAMPGROUNDS:
+        search = SearchReserveCalifornia(
+            search_window=search_window,
+            recreation_area=[campground["park_id"]],
+            campgrounds=[campground["campground_id"]],
+            nights=1,
+        )
+        for campsite in search.get_matching_campsites(search_once=True, log=False):
+            openings.append(
+                Opening(
+                    park_name=str(campsite.recreation_area or campground["park_name"]),
+                    campground_name=str(campsite.facility_name or campground["campground_name"]),
+                    campground_id=str(campsite.facility_id or campground["campground_id"]),
+                    provider="ReserveCalifornia",
+                    site=str(campsite.campsite_site_name),
+                    date=str(campsite.booking_date),
+                    url=str(campsite.booking_url),
+                )
+            )
+
+    return openings
+
+
 def collect_openings(config: Config, today: date | None = None) -> list[Opening]:
     scan_from = today or date.today()
     openings: list[Opening] = []
 
-    for campground_name, campground_id in CAMPGROUNDS.items():
+    for campground in RECREATION_GOV_CAMPGROUNDS:
         for month_start in month_starts(scan_from, config.scan_months):
-            payload = fetch_month(campground_id, month_start, config.request_timeout)
-            openings.extend(parse_openings(campground_name, campground_id, payload))
+            payload = fetch_month(campground["campground_id"], month_start, config.request_timeout)
+            openings.extend(
+                parse_recreation_openings(
+                    campground["park_name"],
+                    campground["campground_name"],
+                    campground["campground_id"],
+                    payload,
+                )
+            )
 
-    return sorted(openings, key=lambda item: (item.date, item.campground_name, item.site))
+    openings.extend(collect_reserve_california_openings(config, scan_from))
+
+    return sorted(openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))
 
 
 def load_state(path: Path) -> dict:
@@ -233,13 +318,13 @@ def diff_new_openings(current: Iterable[Opening], previous_state: dict) -> list[
 
 def format_opening_line(opening: Opening) -> str:
     return (
-        f"{opening.campground_name} site {opening.site} "
+        f"{opening.park_name} | {opening.campground_name} site {opening.site} "
         f"{opening.date} {opening.day_name} ({opening.day_type}) {opening.url}"
     )
 
 
 def chunk_messages(openings: Iterable[Opening], max_chars: int = 320) -> list[str]:
-    sorted_openings = sorted(openings, key=lambda item: (item.campground_name, item.date, item.site))
+    sorted_openings = sorted(openings, key=lambda item: (item.park_name, item.campground_name, item.date, item.site))
     if not sorted_openings:
         return []
 
@@ -471,16 +556,16 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
             [
                 "### New openings",
                 "",
-                "| Campground | Site | Date | Day | Day Type | Link |",
-                "| --- | --- | --- | --- | --- | --- |",
+                "| Park | Campground | Site | Date | Day | Day Type | Link |",
+                "| --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for opening in new_openings:
             lines.append(
-                f"| {opening.campground_name} | {opening.site} | {opening.date} | "
+                f"| {opening.park_name} | {opening.campground_name} | {opening.site} | {opening.date} | "
                 f"{opening.day_name} | "
                 f"{opening.day_type} | "
-                f"[Recreation.gov]({opening.url}) |"
+                f"[Book]({opening.url}) |"
             )
     else:
         lines.extend(["### New openings", "", "No new openings in this run."])

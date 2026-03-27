@@ -8,9 +8,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from yosemite_monitor.monitor import (
-    CAMPGROUNDS,
     Config,
     Opening,
+    RECREATION_GOV_CAMPGROUNDS,
     build_email_body,
     build_email_subject,
     build_clicksend_payload,
@@ -52,13 +52,16 @@ class MonitorTests(unittest.TestCase):
                 }
             }
         }
-        openings = parse_openings("Upper Pines", CAMPGROUNDS["Upper Pines"], payload)
+        yosemite_upper = next(item for item in RECREATION_GOV_CAMPGROUNDS if item["campground_name"] == "Upper Pines")
+        openings = parse_openings("Upper Pines", yosemite_upper["campground_id"], payload)
         self.assertEqual(
             openings,
             [
                 Opening(
+                    park_name="Yosemite National Park",
                     campground_name="Upper Pines",
-                    campground_id=CAMPGROUNDS["Upper Pines"],
+                    campground_id=yosemite_upper["campground_id"],
+                    provider="Recreation.gov",
                     site="044",
                     date="2026-04-11",
                     url="https://www.recreation.gov/camping/campgrounds/232447",
@@ -70,8 +73,10 @@ class MonitorTests(unittest.TestCase):
 
     def test_day_type_treats_friday_as_weekend(self) -> None:
         opening = Opening(
+            park_name="Yosemite National Park",
             campground_name="Upper Pines",
             campground_id="232447",
+            provider="Recreation.gov",
             site="044",
             date="2026-04-10",
             url="https://www.recreation.gov/camping/campgrounds/232447",
@@ -83,8 +88,10 @@ class MonitorTests(unittest.TestCase):
         existing = build_state(
             [
                 Opening(
+                    park_name="Yosemite National Park",
                     campground_name="Upper Pines",
                     campground_id="232447",
+                    provider="Recreation.gov",
                     site="044",
                     date="2026-04-11",
                     url="https://www.recreation.gov/camping/campgrounds/232447",
@@ -93,15 +100,19 @@ class MonitorTests(unittest.TestCase):
         )
         current = [
             Opening(
+                park_name="Yosemite National Park",
                 campground_name="Upper Pines",
                 campground_id="232447",
+                provider="Recreation.gov",
                 site="044",
                 date="2026-04-11",
                 url="https://www.recreation.gov/camping/campgrounds/232447",
             ),
             Opening(
+                park_name="Yosemite National Park",
                 campground_name="North Pines",
                 campground_id="232449",
+                provider="Recreation.gov",
                 site="101",
                 date="2026-04-12",
                 url="https://www.recreation.gov/camping/campgrounds/232449",
@@ -113,8 +124,10 @@ class MonitorTests(unittest.TestCase):
     def test_chunk_messages_splits_when_too_long(self) -> None:
         openings = [
             Opening(
+                park_name="Yosemite National Park",
                 campground_name="Upper Pines",
                 campground_id="232447",
+                provider="Recreation.gov",
                 site=f"{index:03d}",
                 date="2026-04-11",
                 url="https://www.recreation.gov/camping/campgrounds/232447",
@@ -163,8 +176,10 @@ class MonitorTests(unittest.TestCase):
             state = build_state(
                 [
                     Opening(
+                        park_name="Yosemite National Park",
                         campground_name="Lower Pines",
                         campground_id="232450",
+                        provider="Recreation.gov",
                         site="003",
                         date="2026-05-05",
                         url="https://www.recreation.gov/camping/campgrounds/232450",
@@ -218,8 +233,10 @@ class MonitorTests(unittest.TestCase):
 
     def test_build_summary_markdown_includes_opening_table(self) -> None:
         opening = Opening(
+            park_name="Yosemite National Park",
             campground_name="North Pines",
             campground_id="232449",
+            provider="Recreation.gov",
             site="101",
             date="2026-04-12",
             url="https://www.recreation.gov/camping/campgrounds/232449",
@@ -241,7 +258,7 @@ class MonitorTests(unittest.TestCase):
             [opening],
         )
         self.assertIn("## Yosemite Camping Monitor", summary)
-        self.assertIn("| North Pines | 101 | 2026-04-12 | Sunday | Weekend |", summary)
+        self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend |", summary)
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
@@ -258,8 +275,10 @@ class MonitorTests(unittest.TestCase):
 
     def test_build_email_subject_and_body_include_day_name(self) -> None:
         opening = Opening(
+            park_name="Yosemite National Park",
             campground_name="North Pines",
             campground_id="232449",
+            provider="Recreation.gov",
             site="101",
             date="2026-04-12",
             url="https://www.recreation.gov/camping/campgrounds/232449",

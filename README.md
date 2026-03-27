@@ -1,6 +1,6 @@
 # Yosemite Camping Monitor
 
-This project polls Recreation.gov for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, and `North Pines` campgrounds, records each run inside GitHub, and can optionally send alerts through ClickSend SMS and Gmail SMTP email when new openings appear.
+This project polls Recreation.gov and ReserveCalifornia for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, `North Pines`, and Morro Bay SP's `Upper Section`, records each run inside GitHub, and can optionally send alerts through ClickSend SMS and Gmail SMTP email when new openings appear.
 
 ## What it does
 
@@ -19,6 +19,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Upper Pines: `232447`
 - North Pines: `232449`
 - Lower Pines: `232450`
+- Morro Bay SP - Upper Section: `park #680`, `campground #583`
 
 ## Repository layout
 
@@ -79,6 +80,7 @@ DRY_RUN=true python3 -m yosemite_monitor
   - `state/run-summary.md`
 - The GitHub workflow publishes the Markdown summary to the Actions run page.
 - If `LOG_ISSUE_NUMBER` is configured, the workflow posts a comment to that issue only when new openings are found.
+- Results now include a leftmost `Park` column so Yosemite and Morro Bay openings are easy to distinguish.
 - Issue comments and summaries include both the day name and the `Weekend`/`Weekday` classification.
 
 ## Gmail note
