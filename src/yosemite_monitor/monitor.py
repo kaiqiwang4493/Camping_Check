@@ -67,6 +67,9 @@ class Opening:
     date: str
     url: str
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "date", normalize_booking_date(self.date))
+
     @property
     def key(self) -> str:
         return f"{self.provider}|{self.campground_id}|{self.site}|{self.date}"
@@ -139,6 +142,13 @@ def normalize_password_secret(value: str | None) -> str | None:
     # Google app passwords are often shown in groups; remove all whitespace safely.
     compact = "".join(normalized.split())
     return compact or None
+
+
+def normalize_booking_date(value: str) -> str:
+    normalized = value.strip().replace("T", " ")
+    if len(normalized) >= 10:
+        return normalized[:10]
+    return normalized
 
 
 def month_starts(today: date, count: int) -> list[date]:

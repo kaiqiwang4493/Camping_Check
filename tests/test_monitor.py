@@ -26,6 +26,7 @@ from yosemite_monitor.monitor import (
     load_config,
     month_starts,
     normalize_password_secret,
+    normalize_booking_date,
     normalize_text_secret,
     parse_openings,
     save_state,
@@ -305,6 +306,20 @@ class MonitorTests(unittest.TestCase):
     def test_normalize_text_secret_strips_unicode_spaces(self) -> None:
         raw = "\u00a0 user@gmail.com \u202f"
         self.assertEqual(normalize_text_secret(raw), "user@gmail.com")
+
+    def test_normalize_booking_date_truncates_datetime_string(self) -> None:
+        self.assertEqual(normalize_booking_date("2026-03-29 00:00:00"), "2026-03-29")
+        opening = Opening(
+            park_name="Morro Bay SP",
+            campground_name="Upper Section",
+            campground_id="583",
+            provider="ReserveCalifornia",
+            site="086",
+            date="2026-03-29 00:00:00",
+            url="https://www.reservecalifornia.com/",
+        )
+        self.assertEqual(opening.date, "2026-03-29")
+        self.assertEqual(opening.day_name, "Sunday")
 
 
 if __name__ == "__main__":
