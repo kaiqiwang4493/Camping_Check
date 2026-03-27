@@ -21,6 +21,7 @@ from urllib.request import Request, urlopen
 RECREATION_API_BASE = "https://www.recreation.gov/api/camps/availability/campground"
 CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
 DEFAULT_SCAN_MONTHS = 6
+DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 
 RECREATION_GOV_CAMPGROUNDS = (
@@ -97,6 +98,7 @@ class Config:
     email_from: str | None
     dry_run: bool
     scan_months: int
+    morro_bay_scan_months: int
     state_path: Path
     request_timeout: int
     report_path: Path
@@ -104,11 +106,20 @@ class Config:
 
 
 def load_config() -> Config:
-    scan_months_raw = os.getenv("SCAN_MONTHS", "").strip() or str(DEFAULT_SCAN_MONTHS)
+    scan_months_raw = os.getenv("YOSEMITE_SCAN_MONTHS", "").strip() or str(DEFAULT_SCAN_MONTHS)
+    morro_bay_scan_months_raw = os.getenv("MORRO_BAY_SCAN_MONTHS", "").strip() or str(
+        DEFAULT_MORRO_BAY_SCAN_MONTHS
+    )
     try:
         scan_months = max(1, int(scan_months_raw))
     except ValueError as exc:
-        raise ValueError(f"Invalid SCAN_MONTHS value: {scan_months_raw}") from exc
+        raise ValueError(f"Invalid YOSEMITE_SCAN_MONTHS value: {scan_months_raw}") from exc
+    try:
+        morro_bay_scan_months = max(1, int(morro_bay_scan_months_raw))
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid MORRO_BAY_SCAN_MONTHS value: {morro_bay_scan_months_raw}"
+        ) from exc
 
     return Config(
         clicksend_username=normalize_text_secret(os.getenv("CLICKSEND_USERNAME")),
@@ -121,6 +132,7 @@ def load_config() -> Config:
         email_from=normalize_text_secret(os.getenv("EMAIL_FROM")),
         dry_run=os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
         scan_months=scan_months,
+        morro_bay_scan_months=morro_bay_scan_months,
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
         request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
         report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
@@ -240,7 +252,7 @@ def end_date_for_scan(today: date, scan_months: int) -> date:
 
 
 def collect_reserve_california_openings(config: Config, today: date) -> list[Opening]:
-    scan_end = end_date_for_scan(today, config.scan_months)
+    scan_end = end_date_for_scan(today, config.morro_bay_scan_months)
     search_window = SearchWindow(start_date=today, end_date=scan_end)
     openings: list[Opening] = []
 

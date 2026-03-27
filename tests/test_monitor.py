@@ -151,6 +151,7 @@ class MonitorTests(unittest.TestCase):
             email_from=None,
             dry_run=False,
             scan_months=12,
+            morro_bay_scan_months=1,
             state_path=Path("state.json"),
             request_timeout=30,
             report_path=Path("report.json"),
@@ -204,6 +205,7 @@ class MonitorTests(unittest.TestCase):
             email_from=None,
             dry_run=False,
             scan_months=6,
+            morro_bay_scan_months=1,
             state_path=Path("state.json"),
             request_timeout=30,
             report_path=Path("report.json"),
@@ -224,6 +226,7 @@ class MonitorTests(unittest.TestCase):
             email_from=None,
             dry_run=False,
             scan_months=6,
+            morro_bay_scan_months=1,
             state_path=Path("state.json"),
             request_timeout=30,
             report_path=Path("report.json"),
@@ -263,16 +266,23 @@ class MonitorTests(unittest.TestCase):
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
-        previous = os.environ.get("SCAN_MONTHS")
+        previous = os.environ.get("YOSEMITE_SCAN_MONTHS")
+        previous_morro = os.environ.get("MORRO_BAY_SCAN_MONTHS")
         try:
-            os.environ["SCAN_MONTHS"] = ""
+            os.environ["YOSEMITE_SCAN_MONTHS"] = ""
+            os.environ["MORRO_BAY_SCAN_MONTHS"] = ""
             config = load_config()
         finally:
             if previous is None:
-                os.environ.pop("SCAN_MONTHS", None)
+                os.environ.pop("YOSEMITE_SCAN_MONTHS", None)
             else:
-                os.environ["SCAN_MONTHS"] = previous
+                os.environ["YOSEMITE_SCAN_MONTHS"] = previous
+            if previous_morro is None:
+                os.environ.pop("MORRO_BAY_SCAN_MONTHS", None)
+            else:
+                os.environ["MORRO_BAY_SCAN_MONTHS"] = previous_morro
         self.assertEqual(config.scan_months, 6)
+        self.assertEqual(config.morro_bay_scan_months, 1)
 
     def test_build_email_subject_and_body_include_day_name(self) -> None:
         opening = Opening(

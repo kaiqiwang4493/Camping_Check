@@ -43,7 +43,8 @@ This project polls Recreation.gov and ReserveCalifornia for campsite availabilit
    - optional `EMAIL_FROM`
 4. Optionally add these repository variables or secrets:
    - `PHONE_FROM`
-   - `SCAN_MONTHS`
+   - `YOSEMITE_SCAN_MONTHS`
+   - `MORRO_BAY_SCAN_MONTHS`
    - `DRY_RUN`
    - `LOG_ISSUE_NUMBER`
 5. Enable GitHub Actions for the repository.
@@ -88,6 +89,7 @@ DRY_RUN=true python3 -m yosemite_monitor
 - Gmail SMTP uses `smtp.gmail.com` on port `587` with STARTTLS.
 - Use a Google App Password for `GMAIL_SMTP_APP_PASSWORD`.
 - Email is sent only when new openings are found.
+- By default Yosemite scans 6 months and Morro Bay scans 1 month.
 
 ## ClickSend note
 

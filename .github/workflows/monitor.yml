@@ -40,7 +40,7 @@ jobs:
           GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          SCAN_MONTHS: ${{ vars.SCAN_MONTHS }}
+          YOSEMITE_SCAN_MONTHS: ${{ vars.YOSEMITE_SCAN_MONTHS }}
           DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
