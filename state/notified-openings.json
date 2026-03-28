@@ -1,12 +1,5 @@
 {
   "active_openings": {
-    "Recreation.gov|232447|004|2026-04-02": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-02",
-      "site": "004",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
     "ReserveCalifornia|583|Campsite #101|2026-03-31": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
@@ -22,6 +15,6 @@
       "url": "https://www.reservecalifornia.com/Web/Default.aspx#!park/680/583"
     }
   },
-  "updated_at": "2026-03-27T23:41:09.059826+00:00",
+  "updated_at": "2026-03-28T00:00:34.035554+00:00",
   "version": 1
 }
