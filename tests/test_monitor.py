@@ -23,6 +23,7 @@ from yosemite_monitor.monitor import (
     diff_new_openings,
     email_configured,
     email_partially_configured,
+    filter_minimum_stay,
     load_state,
     load_config,
     month_starts,
@@ -123,6 +124,42 @@ class MonitorTests(unittest.TestCase):
         new_items = diff_new_openings(current, existing)
         self.assertEqual([item.site for item in new_items], ["101"])
 
+    def test_filter_minimum_stay_returns_only_two_night_windows(self) -> None:
+        openings = [
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="044",
+                date="2026-04-11",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            ),
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="044",
+                date="2026-04-12",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            ),
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="050",
+                date="2026-04-11",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            ),
+        ]
+        stays = filter_minimum_stay(openings, 2)
+        self.assertEqual(len(stays), 1)
+        self.assertEqual(stays[0].site, "044")
+        self.assertEqual(stays[0].nights, 2)
+        self.assertEqual(stays[0].stay_dates_label, "2026-04-11 to 2026-04-12")
+
     def test_chunk_messages_splits_when_too_long(self) -> None:
         openings = [
             Opening(
@@ -138,7 +175,7 @@ class MonitorTests(unittest.TestCase):
         ]
         messages = chunk_messages(openings, max_chars=130)
         self.assertGreater(len(messages), 1)
-        self.assertTrue(all(message.startswith("Yosemite openings:") for message in messages))
+        self.assertTrue(all(message.startswith("Camping openings:") for message in messages))
 
     def test_build_clicksend_payload_includes_sender_when_present(self) -> None:
         config = Config(
@@ -263,7 +300,7 @@ class MonitorTests(unittest.TestCase):
             [opening],
         )
         self.assertIn("## Camping Monitor", summary)
-        self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend |", summary)
+        self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend | 1 |", summary)
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:

@@ -13,6 +13,7 @@ This project polls Recreation.gov and ReserveCalifornia for campsite availabilit
 - Can optionally send Gmail SMTP email when new openings appear
 - Supports `workflow_dispatch` for manual runs
 - Supports `DRY_RUN=true` for testing without sending notifications or updating state
+- Filters results to campsites that can be booked for at least 2 consecutive nights
 
 ## Campgrounds
 
@@ -20,6 +21,7 @@ This project polls Recreation.gov and ReserveCalifornia for campsite availabilit
 - North Pines: `232449`
 - Lower Pines: `232450`
 - Morro Bay SP - Upper Section: `park #680`, `campground #583`
+- Pfeiffer Big Sur SP - Weyland Campground: `park #690`, `campground #612`
 
 ## Repository layout
 
@@ -83,6 +85,7 @@ DRY_RUN=true python3 -m yosemite_monitor
 - If `LOG_ISSUE_NUMBER` is configured, the workflow posts a comment to that issue only when new openings are found.
 - Results now include a leftmost `Park` column so Yosemite and Morro Bay openings are easy to distinguish.
 - Issue comments and summaries include both the day name and the `Weekend`/`Weekday` classification.
+- Reported openings represent 2-night stay windows, not single-night availability.
 
 ## Gmail note
 

@@ -5,8 +5,9 @@ import json
 import os
 import smtplib
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
@@ -22,6 +23,7 @@ RECREATION_API_BASE = "https://www.recreation.gov/api/camps/availability/campgro
 CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
+MIN_STAY_NIGHTS = 2
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 
 RECREATION_GOV_CAMPGROUNDS = (
@@ -49,6 +51,12 @@ RESERVE_CALIFORNIA_CAMPGROUNDS = (
         "campground_name": "Upper Section",
         "campground_id": 583,
     },
+    {
+        "park_name": "Pfeiffer Big Sur SP",
+        "park_id": 690,
+        "campground_name": "Weyland Campground",
+        "campground_id": 612,
+    },
 )
 
 UNICODE_SPACE_TRANSLATION = {
@@ -67,23 +75,40 @@ class Opening:
     site: str
     date: str
     url: str
+    nights: int = 1
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "date", normalize_booking_date(self.date))
 
     @property
     def key(self) -> str:
-        return f"{self.provider}|{self.campground_id}|{self.site}|{self.date}"
+        return f"{self.provider}|{self.campground_id}|{self.site}|{self.date}|{self.nights}"
+
+    @property
+    def start_date(self) -> date:
+        return date.fromisoformat(self.date)
+
+    @property
+    def last_night_date(self) -> date:
+        return self.start_date + timedelta(days=self.nights - 1)
+
+    @property
+    def checkout_date(self) -> date:
+        return self.start_date + timedelta(days=self.nights)
+
+    @property
+    def stay_dates_label(self) -> str:
+        if self.nights <= 1:
+            return self.date
+        return f"{self.date} to {self.last_night_date.isoformat()}"
 
     @property
     def day_name(self) -> str:
-        opening_date = date.fromisoformat(self.date)
-        return opening_date.strftime("%A")
+        return self.start_date.strftime("%A")
 
     @property
     def day_type(self) -> str:
-        opening_date = date.fromisoformat(self.date)
-        return "Weekend" if opening_date.weekday() >= 4 else "Weekday"
+        return "Weekend" if self.start_date.weekday() >= 4 else "Weekday"
 
 
 @dataclass(frozen=True)
@@ -303,7 +328,34 @@ def collect_openings(config: Config, today: date | None = None) -> list[Opening]
 
     openings.extend(collect_reserve_california_openings(config, scan_from))
 
+    openings = filter_minimum_stay(openings, MIN_STAY_NIGHTS)
     return sorted(openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))
+
+
+def filter_minimum_stay(openings: Iterable[Opening], nights: int) -> list[Opening]:
+    grouped: dict[tuple[str, str, str], list[Opening]] = defaultdict(list)
+    for opening in openings:
+        grouped[(opening.provider, opening.campground_id, opening.site)].append(opening)
+
+    qualifying: list[Opening] = []
+    for items in grouped.values():
+        by_date = {item.start_date: item for item in items}
+        for item in items:
+            if all(item.start_date + timedelta(days=offset) in by_date for offset in range(nights)):
+                qualifying.append(
+                    Opening(
+                        park_name=item.park_name,
+                        campground_name=item.campground_name,
+                        campground_id=item.campground_id,
+                        provider=item.provider,
+                        site=item.site,
+                        date=item.date,
+                        url=item.url,
+                        nights=nights,
+                    )
+                )
+
+    return qualifying
 
 
 def load_state(path: Path) -> dict:
@@ -317,10 +369,13 @@ def load_state(path: Path) -> dict:
 def build_state(openings: Iterable[Opening]) -> dict:
     opening_map = {
         opening.key: {
+            "park_name": opening.park_name,
             "campground_name": opening.campground_name,
             "campground_id": opening.campground_id,
+            "provider": opening.provider,
             "site": opening.site,
             "date": opening.date,
+            "nights": opening.nights,
             "url": opening.url,
         }
         for opening in openings
@@ -347,7 +402,8 @@ def diff_new_openings(current: Iterable[Opening], previous_state: dict) -> list[
 def format_opening_line(opening: Opening) -> str:
     return (
         f"{opening.park_name} | {opening.campground_name} site {opening.site} "
-        f"{opening.date} {opening.day_name} ({opening.day_type}) {opening.url}"
+        f"{opening.stay_dates_label} ({opening.nights} nights) "
+        f"{opening.day_name} ({opening.day_type}) {opening.url}"
     )
 
 
@@ -356,7 +412,7 @@ def chunk_messages(openings: Iterable[Opening], max_chars: int = 320) -> list[st
     if not sorted_openings:
         return []
 
-    header = "Yosemite openings:"
+    header = "Camping openings:"
     messages: list[str] = []
     current = header
 
@@ -484,7 +540,8 @@ def build_email_body(report: dict, new_openings: list[Opening]) -> str:
         for opening in new_openings:
             lines.append(
                 f"- {opening.campground_name} | site {opening.site} | "
-                f"{opening.date} | {opening.day_name} | {opening.day_type} | {opening.url}"
+                f"{opening.stay_dates_label} | {opening.day_name} | {opening.day_type} | "
+                f"{opening.nights} nights | {opening.url}"
             )
     else:
         lines.append("No new openings in this run.")
@@ -541,8 +598,10 @@ def build_run_report(
                 "campground_name": opening.campground_name,
                 "site": opening.site,
                 "date": opening.date,
+                "stay_dates": opening.stay_dates_label,
                 "day_name": opening.day_name,
                 "day_type": opening.day_type,
+                "nights": opening.nights,
                 "url": opening.url,
             }
             for opening in new_openings
@@ -584,15 +643,16 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
             [
                 "### New openings",
                 "",
-                "| Park | Campground | Site | Date | Day | Day Type | Link |",
-                "| --- | --- | --- | --- | --- | --- | --- |",
+                "| Park | Campground | Site | Stay Dates | Day | Day Type | Nights | Link |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for opening in new_openings:
             lines.append(
-                f"| {opening.park_name} | {opening.campground_name} | {opening.site} | {opening.date} | "
+                f"| {opening.park_name} | {opening.campground_name} | {opening.site} | {opening.stay_dates_label} | "
                 f"{opening.day_name} | "
                 f"{opening.day_type} | "
+                f"{opening.nights} | "
                 f"[Book]({opening.url}) |"
             )
     else:
