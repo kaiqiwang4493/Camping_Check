@@ -6,15 +6,8 @@
       "date": "2026-03-31",
       "site": "Campsite #101",
       "url": "https://www.reservecalifornia.com/Web/Default.aspx#!park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #96|2026-03-31": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-03-31",
-      "site": "Campsite #96",
-      "url": "https://www.reservecalifornia.com/Web/Default.aspx#!park/680/583"
     }
   },
-  "updated_at": "2026-03-28T00:00:34.035554+00:00",
+  "updated_at": "2026-03-28T02:54:28.959425+00:00",
   "version": 1
 }
