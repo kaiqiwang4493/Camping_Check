@@ -1,5 +1,26 @@
 {
-  "active_openings": {},
-  "updated_at": "2026-03-28T21:58:54.283140+00:00",
+  "active_openings": {
+    "Recreation.gov|232447|063|2026-03-30|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-03-30",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "063",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "ReserveCalifornia|612|Campsite #W124|2026-03-29|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-03-29",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #W124",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    }
+  },
+  "updated_at": "2026-03-28T22:36:57.803126+00:00",
   "version": 1
 }
