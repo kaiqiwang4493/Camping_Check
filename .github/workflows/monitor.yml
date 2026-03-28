@@ -52,7 +52,7 @@ jobs:
           if [ -f state/run-summary.md ]; then
             cat state/run-summary.md >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## Yosemite Camping Monitor" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Camping Monitor" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Run did not produce a summary file." >> "$GITHUB_STEP_SUMMARY"
           fi

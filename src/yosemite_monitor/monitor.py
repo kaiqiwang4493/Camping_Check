@@ -247,6 +247,10 @@ def parse_recreation_openings(park_name: str, campground_name: str, campground_i
     ]
 
 
+def build_reserve_california_url(park_id: int | str, campground_id: int | str) -> str:
+    return f"https://www.reservecalifornia.com/park/{park_id}/{campground_id}"
+
+
 def end_date_for_scan(today: date, scan_months: int) -> date:
     return month_starts(today, scan_months + 1)[-1]
 
@@ -264,15 +268,17 @@ def collect_reserve_california_openings(config: Config, today: date) -> list[Ope
             nights=1,
         )
         for campsite in search.get_matching_campsites(search_once=True, log=False):
+            park_id = int(campsite.recreation_area_id or campground["park_id"])
+            facility_id = int(campsite.facility_id or campground["campground_id"])
             openings.append(
                 Opening(
                     park_name=str(campsite.recreation_area or campground["park_name"]),
                     campground_name=str(campsite.facility_name or campground["campground_name"]),
-                    campground_id=str(campsite.facility_id or campground["campground_id"]),
+                    campground_id=str(facility_id),
                     provider="ReserveCalifornia",
                     site=str(campsite.campsite_site_name),
                     date=str(campsite.booking_date),
-                    url=str(campsite.booking_url),
+                    url=build_reserve_california_url(park_id, facility_id),
                 )
             )
 
@@ -460,12 +466,12 @@ def send_clicksend(messages: list[str], config: Config) -> dict:
 
 
 def build_email_subject(new_openings: list[Opening]) -> str:
-    return f"Yosemite camping availability found: {len(new_openings)} new opening(s)"
+    return f"Camping availability found: {len(new_openings)} new opening(s)"
 
 
 def build_email_body(report: dict, new_openings: list[Opening]) -> str:
     lines = [
-        "Yosemite Camping Monitor",
+        "Camping Monitor",
         "",
         f"Generated at (UTC): {report['generated_at']}",
         f"Scan window: current month + next {report['scan_months'] - 1} month(s)",
@@ -546,7 +552,7 @@ def build_run_report(
 
 def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
     lines = [
-        "## Yosemite Camping Monitor",
+        "## Camping Monitor",
         "",
         f"- Generated at (UTC): `{report['generated_at']}`",
         f"- Scan window: current month + next `{report['scan_months'] - 1}` month(s)",

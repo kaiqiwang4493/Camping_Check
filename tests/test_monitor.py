@@ -13,6 +13,7 @@ from yosemite_monitor.monitor import (
     RECREATION_GOV_CAMPGROUNDS,
     build_email_body,
     build_email_subject,
+    build_reserve_california_url,
     build_clicksend_payload,
     build_summary_markdown,
     build_state,
@@ -261,7 +262,7 @@ class MonitorTests(unittest.TestCase):
             },
             [opening],
         )
-        self.assertIn("## Yosemite Camping Monitor", summary)
+        self.assertIn("## Camping Monitor", summary)
         self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend |", summary)
         self.assertIn("partially configured", summary)
 
@@ -302,7 +303,7 @@ class MonitorTests(unittest.TestCase):
         }
         self.assertEqual(
             build_email_subject([opening]),
-            "Yosemite camping availability found: 1 new opening(s)",
+            "Camping availability found: 1 new opening(s)",
         )
         body = build_email_body(report, [opening])
         self.assertIn("Sunday", body)
@@ -330,6 +331,12 @@ class MonitorTests(unittest.TestCase):
         )
         self.assertEqual(opening.date, "2026-03-29")
         self.assertEqual(opening.day_name, "Sunday")
+
+    def test_build_reserve_california_url_uses_canonical_park_route(self) -> None:
+        self.assertEqual(
+            build_reserve_california_url(680, 583),
+            "https://www.reservecalifornia.com/park/680/583",
+        )
 
 
 if __name__ == "__main__":
