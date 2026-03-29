@@ -2,7 +2,7 @@ name: Monitor Yosemite Camping
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
