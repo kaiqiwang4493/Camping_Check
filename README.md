@@ -4,7 +4,7 @@ This project polls Recreation.gov and ReserveCalifornia for campsite availabilit
 
 ## What it does
 
-- Scans all configured campgrounds every 30 minutes in GitHub Actions
+- Scans all configured campgrounds every 15 minutes in GitHub Actions
 - Checks the current month plus the next 5 months by default
 - Alerts only on newly appeared availability
 - Stores current active openings in a tracked state file
