@@ -20,24 +20,54 @@
       "site": "Campsite #103",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
-    "ReserveCalifornia|583|Campsite #107|2026-04-10|2": {
+    "ReserveCalifornia|583|Campsite #105|2026-04-21|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-10",
+      "date": "2026-04-21",
       "nights": 2,
       "park_name": "Morro Bay SP",
       "provider": "ReserveCalifornia",
-      "site": "Campsite #107",
+      "site": "Campsite #105",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
-    "ReserveCalifornia|583|Campsite #112|2026-04-13|2": {
+    "ReserveCalifornia|583|Campsite #105|2026-04-22|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-13",
+      "date": "2026-04-22",
       "nights": 2,
       "park_name": "Morro Bay SP",
       "provider": "ReserveCalifornia",
-      "site": "Campsite #112",
+      "site": "Campsite #105",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #106|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #106",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #109|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #109",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #111|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #111",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
     "ReserveCalifornia|583|Campsite #112|2026-04-19|2": {
@@ -60,70 +90,20 @@
       "site": "Campsite #112",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
-    "ReserveCalifornia|583|Campsite #115|2026-04-13|2": {
+    "ReserveCalifornia|583|Campsite #112|2026-04-21|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-13",
+      "date": "2026-04-21",
       "nights": 2,
       "park_name": "Morro Bay SP",
       "provider": "ReserveCalifornia",
-      "site": "Campsite #115",
+      "site": "Campsite #112",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
-    "ReserveCalifornia|583|Campsite #117|2026-04-10|2": {
+    "ReserveCalifornia|583|Campsite #119|2026-04-08|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-10",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #117",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #117|2026-04-11|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-11",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #117",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #118|2026-04-19|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-19",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #118",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #118|2026-04-20|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-20",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #118",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #119|2026-04-19|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-19",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #119",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #119|2026-04-20|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-20",
+      "date": "2026-04-08",
       "nights": 2,
       "park_name": "Morro Bay SP",
       "provider": "ReserveCalifornia",
@@ -140,6 +120,46 @@
       "site": "Campsite #133",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
+    "ReserveCalifornia|583|Campsite #133|2026-04-21|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-21",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #133",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #133|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #133",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #134|2026-04-21|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-21",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #134",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #134|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #134",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
     "ReserveCalifornia|583|Campsite #87|2026-04-20|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
@@ -150,6 +170,26 @@
       "site": "Campsite #87",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
+    "ReserveCalifornia|583|Campsite #88|2026-04-21|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-21",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #88",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #88|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #88",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
     "ReserveCalifornia|583|Campsite #92|2026-04-20|2": {
       "campground_id": "583",
       "campground_name": "Upper Section (sites 86-140)",
@@ -158,16 +198,6 @@
       "park_name": "Morro Bay SP",
       "provider": "ReserveCalifornia",
       "site": "Campsite #92",
-      "url": "https://www.reservecalifornia.com/park/680/583"
-    },
-    "ReserveCalifornia|583|Campsite #94|2026-04-20|2": {
-      "campground_id": "583",
-      "campground_name": "Upper Section (sites 86-140)",
-      "date": "2026-04-20",
-      "nights": 2,
-      "park_name": "Morro Bay SP",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #94",
       "url": "https://www.reservecalifornia.com/park/680/583"
     },
     "ReserveCalifornia|583|Campsite #95|2026-04-19|2": {
@@ -189,8 +219,28 @@
       "provider": "ReserveCalifornia",
       "site": "Campsite #95",
       "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|583|Campsite #97|2026-04-22|2": {
+      "campground_id": "583",
+      "campground_name": "Upper Section (sites 86-140)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Morro Bay SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #97",
+      "url": "https://www.reservecalifornia.com/park/680/583"
+    },
+    "ReserveCalifornia|612|Campsite #W096|2026-04-08|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-08",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #W096",
+      "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-01T16:08:55.284977+00:00",
+  "updated_at": "2026-04-07T21:11:40.758973+00:00",
   "version": 1
 }
