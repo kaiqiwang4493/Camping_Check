@@ -46,12 +46,6 @@ RECREATION_GOV_CAMPGROUNDS = (
 
 RESERVE_CALIFORNIA_CAMPGROUNDS = (
     {
-        "park_name": "Morro Bay SP",
-        "park_id": 680,
-        "campground_name": "Upper Section",
-        "campground_id": 583,
-    },
-    {
         "park_name": "Pfeiffer Big Sur SP",
         "park_id": 690,
         "campground_name": "Weyland Campground",

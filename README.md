@@ -1,6 +1,6 @@
 # Yosemite Camping Monitor
 
-This project polls Recreation.gov and ReserveCalifornia for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, `North Pines`, and Morro Bay SP's `Upper Section`, records each run inside GitHub, and can optionally send alerts through ClickSend SMS and Gmail SMTP email when new openings appear.
+This project polls Recreation.gov and ReserveCalifornia for campsite availability at Yosemite's `Upper Pines`, `Lower Pines`, `North Pines`, and Pfeiffer Big Sur SP's `Weyland Campground`, records each run inside GitHub, and can optionally send alerts through ClickSend SMS and Gmail SMTP email when new openings appear.
 
 ## What it does
 
@@ -20,7 +20,6 @@ This project polls Recreation.gov and ReserveCalifornia for campsite availabilit
 - Upper Pines: `232447`
 - North Pines: `232449`
 - Lower Pines: `232450`
-- Morro Bay SP - Upper Section: `park #680`, `campground #583`
 - Pfeiffer Big Sur SP - Weyland Campground: `park #690`, `campground #612`
 
 ## Repository layout
