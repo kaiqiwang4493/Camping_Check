@@ -1,15 +1,5 @@
 {
   "active_openings": {
-    "Recreation.gov|232447|046|2026-04-08|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-08",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "046",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
     "ReserveCalifornia|612|Campsite #W121|2026-04-09|2": {
       "campground_id": "612",
       "campground_name": "Weyland Camp (sites 79-130)",
@@ -21,6 +11,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-08T23:08:43.633115+00:00",
+  "updated_at": "2026-04-08T23:53:51.948036+00:00",
   "version": 1
 }
