@@ -286,6 +286,7 @@ class MonitorTests(unittest.TestCase):
         summary = build_summary_markdown(
             {
                 "generated_at": "2026-03-24T20:00:00+00:00",
+                "generated_at_display": "2026-03-24 13:00:00 PDT",
                 "scan_months": 6,
                 "current_openings_count": 1,
                 "new_openings_count": 1,
@@ -300,6 +301,7 @@ class MonitorTests(unittest.TestCase):
             [opening],
         )
         self.assertIn("## Camping Monitor", summary)
+        self.assertIn("Generated at (America/Los_Angeles)", summary)
         self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend | 1 |", summary)
         self.assertIn("partially configured", summary)
 
@@ -334,6 +336,7 @@ class MonitorTests(unittest.TestCase):
         )
         report = {
             "generated_at": "2026-03-25T00:00:00+00:00",
+            "generated_at_display": "2026-03-24 17:00:00 PDT",
             "scan_months": 6,
             "current_openings_count": 1,
             "new_openings_count": 1,
@@ -343,6 +346,7 @@ class MonitorTests(unittest.TestCase):
             "Camping availability found: 1 new opening(s)",
         )
         body = build_email_body(report, [opening])
+        self.assertIn("Generated at (America/Los_Angeles)", body)
         self.assertIn("Sunday", body)
         self.assertIn("Weekend", body)
         self.assertIn("North Pines", body)

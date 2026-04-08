@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from camply.containers.data_containers import SearchWindow
 from camply.search.search_usedirect import SearchReserveCalifornia
@@ -25,6 +26,8 @@ DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 MIN_STAY_NIGHTS = 2
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
+DISPLAY_TIMEZONE = ZoneInfo("America/Los_Angeles")
+DISPLAY_TIMEZONE_LABEL = "America/Los_Angeles"
 
 RECREATION_GOV_CAMPGROUNDS = (
     {
@@ -523,7 +526,7 @@ def build_email_body(report: dict, new_openings: list[Opening]) -> str:
     lines = [
         "Camping Monitor",
         "",
-        f"Generated at (UTC): {report['generated_at']}",
+        f"Generated at ({DISPLAY_TIMEZONE_LABEL}): {report['generated_at_display']}",
         f"Scan window: current month + next {report['scan_months'] - 1} month(s)",
         f"Current openings found: {report['current_openings_count']}",
         f"New openings found: {report['new_openings_count']}",
@@ -573,8 +576,10 @@ def build_run_report(
     email_status: str,
     email_messages_sent: int,
 ) -> dict:
+    generated_at_utc = datetime.now(timezone.utc)
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": generated_at_utc.isoformat(),
+        "generated_at_display": generated_at_utc.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "scan_months": config.scan_months,
         "dry_run": config.dry_run,
         "clicksend_configured": clicksend_configured(config),
@@ -607,7 +612,7 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
     lines = [
         "## Camping Monitor",
         "",
-        f"- Generated at (UTC): `{report['generated_at']}`",
+        f"- Generated at ({DISPLAY_TIMEZONE_LABEL}): `{report['generated_at_display']}`",
         f"- Scan window: current month + next `{report['scan_months'] - 1}` month(s)",
         f"- Current openings found: `{report['current_openings_count']}`",
         f"- New openings found: `{report['new_openings_count']}`",
