@@ -1,5 +1,15 @@
 {
   "active_openings": {
+    "ReserveCalifornia|612|Campsite #W079|2026-04-14|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-14",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #W079",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    },
     "ReserveCalifornia|612|Campsite #W081|2026-04-11|2": {
       "campground_id": "612",
       "campground_name": "Weyland Camp (sites 79-130)",
@@ -30,6 +40,26 @@
       "site": "Campsite #W111",
       "url": "https://www.reservecalifornia.com/park/690/612"
     },
+    "ReserveCalifornia|612|Campsite #W117|2026-04-12|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-12",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #W117",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    },
+    "ReserveCalifornia|612|Campsite #W117|2026-04-13|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-13",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #W117",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    },
     "ReserveCalifornia|612|Premium Campsite #W113|2026-04-28|2": {
       "campground_id": "612",
       "campground_name": "Weyland Camp (sites 79-130)",
@@ -48,6 +78,26 @@
       "park_name": "Pfeiffer Big Sur SP",
       "provider": "ReserveCalifornia",
       "site": "Premium Campsite #W129",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    },
+    "ReserveCalifornia|612|Premium Campsite #W130|2026-04-22|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Premium Campsite #W130",
+      "url": "https://www.reservecalifornia.com/park/690/612"
+    },
+    "ReserveCalifornia|612|Premium Campsite #W130|2026-04-29|2": {
+      "campground_id": "612",
+      "campground_name": "Weyland Camp (sites 79-130)",
+      "date": "2026-04-29",
+      "nights": 2,
+      "park_name": "Pfeiffer Big Sur SP",
+      "provider": "ReserveCalifornia",
+      "site": "Premium Campsite #W130",
       "url": "https://www.reservecalifornia.com/park/690/612"
     },
     "ReserveCalifornia|612|Premium Tent Campsite #W112|2026-04-11|2": {
@@ -91,6 +141,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-10T12:36:28.646149+00:00",
+  "updated_at": "2026-04-10T15:07:33.765822+00:00",
   "version": 1
 }
