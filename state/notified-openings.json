@@ -10,24 +10,34 @@
       "site": "008",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|040|2026-04-14|2": {
+    "Recreation.gov|232447|023|2026-04-14|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
       "date": "2026-04-14",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "040",
+      "site": "023",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|045|2026-04-12|2": {
+    "Recreation.gov|232447|023|2026-04-15|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-15",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "023",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "Recreation.gov|232447|063|2026-04-12|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
       "date": "2026-04-12",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "045",
+      "site": "063",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
     "ReserveCalifornia|612|Campsite #W106|2026-04-29|2": {
@@ -80,16 +90,6 @@
       "site": "Premium Campsite #W113",
       "url": "https://www.reservecalifornia.com/park/690/612"
     },
-    "ReserveCalifornia|612|Premium Campsite #W129|2026-04-29|2": {
-      "campground_id": "612",
-      "campground_name": "Weyland Camp (sites 79-130)",
-      "date": "2026-04-29",
-      "nights": 2,
-      "park_name": "Pfeiffer Big Sur SP",
-      "provider": "ReserveCalifornia",
-      "site": "Premium Campsite #W129",
-      "url": "https://www.reservecalifornia.com/park/690/612"
-    },
     "ReserveCalifornia|612|Premium Campsite #W130|2026-04-29|2": {
       "campground_id": "612",
       "campground_name": "Weyland Camp (sites 79-130)",
@@ -111,6 +111,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-11T16:03:47.160982+00:00",
+  "updated_at": "2026-04-11T16:56:07.112036+00:00",
   "version": 1
 }
