@@ -1,19 +1,19 @@
 {
   "active_openings": {
-    "Recreation.gov|232447|039|2026-04-12|2": {
+    "Recreation.gov|232447|045|2026-04-12|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
       "date": "2026-04-12",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "039",
+      "site": "045",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|046|2026-04-13|2": {
+    "Recreation.gov|232447|046|2026-04-12|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
-      "date": "2026-04-13",
+      "date": "2026-04-12",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
@@ -28,16 +28,6 @@
       "park_name": "Pfeiffer Big Sur SP",
       "provider": "ReserveCalifornia",
       "site": "Campsite #W106",
-      "url": "https://www.reservecalifornia.com/park/690/612"
-    },
-    "ReserveCalifornia|612|Premium Campsite #W113|2026-04-20|2": {
-      "campground_id": "612",
-      "campground_name": "Weyland Camp (sites 79-130)",
-      "date": "2026-04-20",
-      "nights": 2,
-      "park_name": "Pfeiffer Big Sur SP",
-      "provider": "ReserveCalifornia",
-      "site": "Premium Campsite #W113",
       "url": "https://www.reservecalifornia.com/park/690/612"
     },
     "ReserveCalifornia|612|Premium Campsite #W130|2026-04-29|2": {
@@ -69,18 +59,8 @@
       "provider": "ReserveCalifornia",
       "site": "Tent Campsite #W109",
       "url": "https://www.reservecalifornia.com/park/690/612"
-    },
-    "ReserveCalifornia|612|Tent Campsite #W109|2026-04-14|2": {
-      "campground_id": "612",
-      "campground_name": "Weyland Camp (sites 79-130)",
-      "date": "2026-04-14",
-      "nights": 2,
-      "park_name": "Pfeiffer Big Sur SP",
-      "provider": "ReserveCalifornia",
-      "site": "Tent Campsite #W109",
-      "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-12T18:01:21.296269+00:00",
+  "updated_at": "2026-04-12T19:53:22.340730+00:00",
   "version": 1
 }
