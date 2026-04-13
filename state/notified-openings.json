@@ -1,5 +1,25 @@
 {
   "active_openings": {
+    "Recreation.gov|232447|034|2026-04-15|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-15",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "034",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "Recreation.gov|232447|081|2026-04-14|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-14",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "081",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
     "Recreation.gov|232447|193|2026-04-19|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -31,6 +51,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-12T23:37:26.051940+00:00",
+  "updated_at": "2026-04-13T01:09:45.087672+00:00",
   "version": 1
 }
