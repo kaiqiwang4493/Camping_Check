@@ -50,6 +50,26 @@
       "site": "100",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
+    "Recreation.gov|232447|162|2026-04-19|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-19",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "162",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "Recreation.gov|232447|162|2026-04-20|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-20",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "162",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
     "Recreation.gov|232447|194|2026-04-19|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -90,6 +110,16 @@
       "site": "217",
       "url": "https://www.recreation.gov/camping/campgrounds/232449"
     },
+    "Recreation.gov|232449|301|2026-04-29|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-29",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "301",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
     "ReserveCalifornia|612|Campsite #W092|2026-04-20|2": {
       "campground_id": "612",
       "campground_name": "Weyland Camp (sites 79-130)",
@@ -111,6 +141,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-17T07:50:24.258003+00:00",
+  "updated_at": "2026-04-17T10:40:58.319087+00:00",
   "version": 1
 }
