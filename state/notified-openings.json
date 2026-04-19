@@ -110,16 +110,6 @@
       "site": "055",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|062|2026-04-20|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-20",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "062",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
     "Recreation.gov|232447|066|2026-04-22|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -188,16 +178,6 @@
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
       "site": "089",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
-    "Recreation.gov|232447|092|2026-04-19|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-19",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "092",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
     "Recreation.gov|232447|108|2026-04-21|2": {
@@ -630,6 +610,36 @@
       "site": "207",
       "url": "https://www.recreation.gov/camping/campgrounds/232449"
     },
+    "Recreation.gov|232449|214|2026-04-21|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-21",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "214",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|214|2026-04-22|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-22",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "214",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|306|2026-04-21|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-21",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "306",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
     "Recreation.gov|232449|307|2026-04-21|2": {
       "campground_id": "232449",
       "campground_name": "North Pines",
@@ -658,16 +668,6 @@
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
       "site": "405",
-      "url": "https://www.recreation.gov/camping/campgrounds/232449"
-    },
-    "Recreation.gov|232449|501|2026-04-29|2": {
-      "campground_id": "232449",
-      "campground_name": "North Pines",
-      "date": "2026-04-29",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "501",
       "url": "https://www.recreation.gov/camping/campgrounds/232449"
     },
     "Recreation.gov|232449|515|2026-04-21|2": {
@@ -740,26 +740,6 @@
       "site": "033",
       "url": "https://www.recreation.gov/camping/campgrounds/232450"
     },
-    "Recreation.gov|232450|045|2026-04-21|2": {
-      "campground_id": "232450",
-      "campground_name": "Lower Pines",
-      "date": "2026-04-21",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "045",
-      "url": "https://www.recreation.gov/camping/campgrounds/232450"
-    },
-    "Recreation.gov|232450|045|2026-04-22|2": {
-      "campground_id": "232450",
-      "campground_name": "Lower Pines",
-      "date": "2026-04-22",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "045",
-      "url": "https://www.recreation.gov/camping/campgrounds/232450"
-    },
     "Recreation.gov|232450|048|2026-04-21|2": {
       "campground_id": "232450",
       "campground_name": "Lower Pines",
@@ -819,18 +799,8 @@
       "provider": "ReserveCalifornia",
       "site": "Premium Campsite #W090",
       "url": "https://www.reservecalifornia.com/park/690/612"
-    },
-    "ReserveCalifornia|612|Tent Campsite #W109|2026-04-20|2": {
-      "campground_id": "612",
-      "campground_name": "Weyland Camp (sites 79-130)",
-      "date": "2026-04-20",
-      "nights": 2,
-      "park_name": "Pfeiffer Big Sur SP",
-      "provider": "ReserveCalifornia",
-      "site": "Tent Campsite #W109",
-      "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-19T21:59:48.673524+00:00",
+  "updated_at": "2026-04-19T22:49:50.693774+00:00",
   "version": 1
 }
