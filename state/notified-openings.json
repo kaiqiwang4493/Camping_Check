@@ -1,13 +1,13 @@
 {
   "active_openings": {
-    "Recreation.gov|232447|024|2026-04-22|2": {
+    "Recreation.gov|232447|011|2026-04-24|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
-      "date": "2026-04-22",
+      "date": "2026-04-24",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "024",
+      "site": "011",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
     "Recreation.gov|232447|028|2026-04-28|2": {
@@ -20,34 +20,44 @@
       "site": "028",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|081|2026-04-24|2": {
+    "Recreation.gov|232447|066|2026-04-24|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
       "date": "2026-04-24",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "081",
+      "site": "066",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|081|2026-04-25|2": {
+    "Recreation.gov|232447|087|2026-04-25|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
       "date": "2026-04-25",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "081",
+      "site": "087",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|081|2026-04-26|2": {
+    "Recreation.gov|232447|095|2026-04-24|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
-      "date": "2026-04-26",
+      "date": "2026-04-24",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "081",
+      "site": "095",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    "Recreation.gov|232447|102|2026-04-24|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-24",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "102",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
     "Recreation.gov|232447|122|2026-04-26|2": {
@@ -60,24 +70,14 @@
       "site": "122",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|147|2026-04-23|2": {
+    "Recreation.gov|232447|131|2026-04-26|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
-      "date": "2026-04-23",
+      "date": "2026-04-26",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "147",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
-    "Recreation.gov|232447|147|2026-04-24|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-24",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "147",
+      "site": "131",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
     "Recreation.gov|232447|148|2026-04-26|2": {
@@ -180,15 +180,65 @@
       "site": "227",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232450|048|2026-04-24|2": {
-      "campground_id": "232450",
-      "campground_name": "Lower Pines",
+    "Recreation.gov|232449|215|2026-04-24|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
       "date": "2026-04-24",
       "nights": 2,
       "park_name": "Yosemite National Park",
       "provider": "Recreation.gov",
-      "site": "048",
-      "url": "https://www.recreation.gov/camping/campgrounds/232450"
+      "site": "215",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|215|2026-04-25|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-25",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "215",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|217|2026-04-24|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-24",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "217",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|217|2026-04-25|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-25",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "217",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|301|2026-04-25|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-25",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "301",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
+    },
+    "Recreation.gov|232449|525|2026-04-24|2": {
+      "campground_id": "232449",
+      "campground_name": "North Pines",
+      "date": "2026-04-24",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "525",
+      "url": "https://www.recreation.gov/camping/campgrounds/232449"
     },
     "Recreation.gov|232450|050|2026-04-25|2": {
       "campground_id": "232450",
@@ -211,6 +261,6 @@
       "url": "https://www.recreation.gov/camping/campgrounds/232450"
     }
   },
-  "updated_at": "2026-04-23T04:24:26.339649+00:00",
+  "updated_at": "2026-04-23T06:24:01.633798+00:00",
   "version": 1
 }
