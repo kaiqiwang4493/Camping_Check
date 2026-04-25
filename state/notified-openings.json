@@ -1,5 +1,15 @@
 {
   "active_openings": {
+    "Recreation.gov|232447|039|2026-04-26|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-26",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "039",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
     "Recreation.gov|232447|043|2026-04-26|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -110,26 +120,6 @@
       "site": "217",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
-    "Recreation.gov|232447|231|2026-04-28|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-28",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "231",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
-    "Recreation.gov|232447|231|2026-04-29|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines",
-      "date": "2026-04-29",
-      "nights": 2,
-      "park_name": "Yosemite National Park",
-      "provider": "Recreation.gov",
-      "site": "231",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
     "Recreation.gov|232447|237|2026-04-26|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -170,6 +160,16 @@
       "site": "003",
       "url": "https://www.recreation.gov/camping/campgrounds/232450"
     },
+    "Recreation.gov|232450|044|2026-04-26|2": {
+      "campground_id": "232450",
+      "campground_name": "Lower Pines",
+      "date": "2026-04-26",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "044",
+      "url": "https://www.recreation.gov/camping/campgrounds/232450"
+    },
     "Recreation.gov|232450|DBL1|2026-04-26|2": {
       "campground_id": "232450",
       "campground_name": "Lower Pines",
@@ -201,6 +201,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-25T22:39:02.856454+00:00",
+  "updated_at": "2026-04-25T23:22:34.743609+00:00",
   "version": 1
 }
