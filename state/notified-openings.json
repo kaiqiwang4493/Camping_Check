@@ -20,6 +20,16 @@
       "site": "027",
       "url": "https://www.recreation.gov/camping/campgrounds/232447"
     },
+    "Recreation.gov|232447|027|2026-04-29|2": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines",
+      "date": "2026-04-29",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "027",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
     "Recreation.gov|232447|039|2026-04-26|2": {
       "campground_id": "232447",
       "campground_name": "Upper Pines",
@@ -200,6 +210,36 @@
       "site": "044",
       "url": "https://www.recreation.gov/camping/campgrounds/232450"
     },
+    "Recreation.gov|232450|070|2026-05-10|2": {
+      "campground_id": "232450",
+      "campground_name": "Lower Pines",
+      "date": "2026-05-10",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "070",
+      "url": "https://www.recreation.gov/camping/campgrounds/232450"
+    },
+    "Recreation.gov|232450|070|2026-05-11|2": {
+      "campground_id": "232450",
+      "campground_name": "Lower Pines",
+      "date": "2026-05-11",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "070",
+      "url": "https://www.recreation.gov/camping/campgrounds/232450"
+    },
+    "Recreation.gov|232450|070|2026-05-12|2": {
+      "campground_id": "232450",
+      "campground_name": "Lower Pines",
+      "date": "2026-05-12",
+      "nights": 2,
+      "park_name": "Yosemite National Park",
+      "provider": "Recreation.gov",
+      "site": "070",
+      "url": "https://www.recreation.gov/camping/campgrounds/232450"
+    },
     "Recreation.gov|232450|DBL1|2026-04-26|2": {
       "campground_id": "232450",
       "campground_name": "Lower Pines",
@@ -221,6 +261,6 @@
       "url": "https://www.reservecalifornia.com/park/690/612"
     }
   },
-  "updated_at": "2026-04-26T15:58:19.330404+00:00",
+  "updated_at": "2026-04-26T16:56:19.818166+00:00",
   "version": 1
 }
