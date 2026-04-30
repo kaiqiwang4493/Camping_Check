@@ -37,24 +37,17 @@ RECREATION_GOV_CAMPGROUNDS = (
     },
     {
         "park_name": "Yosemite National Park",
-        "campground_name": "North Pines",
-        "campground_id": "232449",
-    },
-    {
-        "park_name": "Yosemite National Park",
         "campground_name": "Lower Pines",
         "campground_id": "232450",
     },
-)
-
-RESERVE_CALIFORNIA_CAMPGROUNDS = (
     {
-        "park_name": "Pfeiffer Big Sur SP",
-        "park_id": 690,
-        "campground_name": "Weyland Campground",
-        "campground_id": 612,
+        "park_name": "Los Padres National Forest",
+        "campground_name": "Kirk Creek Campground",
+        "campground_id": "233116",
     },
 )
+
+RESERVE_CALIFORNIA_CAMPGROUNDS = ()
 
 UNICODE_SPACE_TRANSLATION = {
     ord("\u00a0"): " ",
