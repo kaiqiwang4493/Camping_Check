@@ -1,0 +1,29 @@
+{
+  "changed_from_previous": true,
+  "desired_inputs": [
+    "Yosemite Lower Pines Campground",
+    "Yosemite Upper Pines Campground",
+    "Kirk Creek Campground"
+  ],
+  "recreation_gov_campgrounds": [
+    {
+      "campground_id": "232450",
+      "campground_name": "Lower Pines Campground",
+      "park_name": "Yosemite National Park, CA"
+    },
+    {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines Campground",
+      "park_name": "Yosemite National Park, CA"
+    },
+    {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "park_name": "Los Padres National Forest,"
+    }
+  ],
+  "reserve_california_campgrounds": [],
+  "resolved_at": "2026-04-30T16:53:55.916970+00:00",
+  "unresolved": [],
+  "version": 1
+}
