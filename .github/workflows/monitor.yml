@@ -28,7 +28,9 @@ jobs:
           python-version: "3.13"
 
       - name: Install project
-        run: python -m pip install -e .
+        run: |
+          python -m pip install -e .
+          python -m playwright install --with-deps chromium
 
       - name: Run monitor
         env:
@@ -40,7 +42,17 @@ jobs:
           GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          AUTO_CART_ENABLED: ${{ vars.AUTO_CART_ENABLED }}
+          RECREATION_GOV_USERNAME: ${{ secrets.RECREATION_GOV_USERNAME }}
+          RECREATION_GOV_PASSWORD: ${{ secrets.RECREATION_GOV_PASSWORD }}
+          RESERVE_CALIFORNIA_USERNAME: ${{ secrets.RESERVE_CALIFORNIA_USERNAME }}
+          RESERVE_CALIFORNIA_PASSWORD: ${{ secrets.RESERVE_CALIFORNIA_PASSWORD }}
+          RESERVE_CALIFORNIA_CAMPGROUNDS_JSON: ${{ vars.RESERVE_CALIFORNIA_CAMPGROUNDS_JSON }}
+          CAMPGROUND_LIST: ${{ vars.CAMPGROUND_LIST }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           YOSEMITE_SCAN_MONTHS: ${{ vars.YOSEMITE_SCAN_MONTHS }}
+          MORRO_BAY_SCAN_MONTHS: ${{ vars.MORRO_BAY_SCAN_MONTHS }}
           DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
@@ -81,12 +93,12 @@ jobs:
 
       - name: Commit updated state
         run: |
-          if git diff --quiet -- state/notified-openings.json; then
+          if [ -z "$(git status --short -- state/notified-openings.json state/resolved-campgrounds.json)" ]; then
             echo "No state changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state/notified-openings.json
+          git add state/notified-openings.json state/resolved-campgrounds.json
           git commit -m "Update camping monitor state [skip ci]"
           git push

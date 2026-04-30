@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import base64
+import difflib
 import json
 import os
+import re
 import smtplib
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
 from camply.containers.data_containers import SearchWindow
@@ -22,10 +24,15 @@ from urllib.request import Request, urlopen
 
 RECREATION_API_BASE = "https://www.recreation.gov/api/camps/availability/campground"
 CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+RECREATION_GOV_CHECKOUT_URL = "https://www.recreation.gov/cart"
+RESERVE_CALIFORNIA_CHECKOUT_URL = "https://www.reservecalifornia.com/ShoppingCart"
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
+DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
 MIN_STAY_NIGHTS = 2
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
+DEFAULT_RESOLVED_CAMPGROUNDS_PATH = Path("state/resolved-campgrounds.json")
 DISPLAY_TIMEZONE = ZoneInfo("America/Los_Angeles")
 DISPLAY_TIMEZONE_LABEL = "America/Los_Angeles"
 
@@ -66,6 +73,7 @@ class Opening:
     date: str
     url: str
     nights: int = 1
+    campsite_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "date", normalize_booking_date(self.date))
@@ -118,6 +126,55 @@ class Config:
     request_timeout: int
     report_path: Path
     summary_path: Path
+    auto_cart_enabled: bool = False
+    recreation_gov_username: str | None = None
+    recreation_gov_password: str | None = None
+    reserve_california_username: str | None = None
+    reserve_california_password: str | None = None
+    recreation_gov_campgrounds: tuple[dict, ...] = RECREATION_GOV_CAMPGROUNDS
+    reserve_california_campgrounds: tuple[dict, ...] = ()
+    campground_list: tuple[str, ...] = ()
+    resolved_campgrounds_path: Path = DEFAULT_RESOLVED_CAMPGROUNDS_PATH
+    openai_api_key: str | None = None
+    openai_model: str = DEFAULT_OPENAI_MODEL
+
+
+@dataclass(frozen=True)
+class CartHoldResult:
+    enabled: bool
+    status: str
+    provider: str | None = None
+    opening: Opening | None = None
+    error: str | None = None
+    checkout_url: str | None = None
+    attempted_count: int = 0
+
+
+@dataclass(frozen=True)
+class CampgroundCandidate:
+    provider: str
+    park_name: str
+    campground_name: str
+    campground_id: str
+    park_id: str | int | None = None
+
+    @property
+    def search_text(self) -> str:
+        return f"{self.park_name} {self.campground_name}"
+
+    def to_config(self) -> dict:
+        if self.provider == "ReserveCalifornia":
+            return {
+                "park_name": self.park_name,
+                "park_id": self.park_id,
+                "campground_name": self.campground_name,
+                "campground_id": self.campground_id,
+            }
+        return {
+            "park_name": self.park_name,
+            "campground_name": self.campground_name,
+            "campground_id": self.campground_id,
+        }
 
 
 def load_config() -> Config:
@@ -152,7 +209,68 @@ def load_config() -> Config:
         request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
         report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
         summary_path=Path(os.getenv("SUMMARY_PATH", "state/run-summary.md")),
+        auto_cart_enabled=parse_bool_env("AUTO_CART_ENABLED"),
+        recreation_gov_username=normalize_text_secret(os.getenv("RECREATION_GOV_USERNAME")),
+        recreation_gov_password=normalize_text_secret(os.getenv("RECREATION_GOV_PASSWORD")),
+        reserve_california_username=normalize_text_secret(os.getenv("RESERVE_CALIFORNIA_USERNAME")),
+        reserve_california_password=normalize_text_secret(os.getenv("RESERVE_CALIFORNIA_PASSWORD")),
+        reserve_california_campgrounds=parse_reserve_california_campgrounds(
+            os.getenv("RESERVE_CALIFORNIA_CAMPGROUNDS_JSON")
+        ),
+        campground_list=parse_campground_list(os.getenv("CAMPGROUND_LIST")),
+        resolved_campgrounds_path=Path(
+            os.getenv("RESOLVED_CAMPGROUNDS_PATH", str(DEFAULT_RESOLVED_CAMPGROUNDS_PATH))
+        ),
+        openai_api_key=normalize_text_secret(os.getenv("OPENAI_API_KEY")),
+        openai_model=normalize_text_secret(os.getenv("OPENAI_MODEL")) or DEFAULT_OPENAI_MODEL,
     )
+
+
+def parse_bool_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
+
+
+def parse_campground_list(raw: str | None) -> tuple[str, ...]:
+    normalized = normalize_text_secret(raw)
+    if normalized is None:
+        return ()
+    parts = re.split(r"[,;\n]+", normalized)
+    return tuple(part.strip() for part in parts if part.strip())
+
+
+def parse_reserve_california_campgrounds(raw: str | None) -> tuple[dict, ...]:
+    normalized = normalize_text_secret(raw)
+    if normalized is None:
+        return RESERVE_CALIFORNIA_CAMPGROUNDS
+
+    try:
+        parsed = json.loads(normalized)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Invalid RESERVE_CALIFORNIA_CAMPGROUNDS_JSON value") from exc
+
+    if not isinstance(parsed, list):
+        raise ValueError("RESERVE_CALIFORNIA_CAMPGROUNDS_JSON must be a JSON array")
+
+    campgrounds = []
+    required = {"park_name", "park_id", "campground_name", "campground_id"}
+    for index, item in enumerate(parsed):
+        if not isinstance(item, dict):
+            raise ValueError(f"ReserveCalifornia campground #{index + 1} must be an object")
+        missing = required - item.keys()
+        if missing:
+            missing_list = ", ".join(sorted(missing))
+            raise ValueError(
+                f"ReserveCalifornia campground #{index + 1} is missing: {missing_list}"
+            )
+        campgrounds.append(
+            {
+                "park_name": str(item["park_name"]),
+                "park_id": item["park_id"],
+                "campground_name": str(item["campground_name"]),
+                "campground_id": item["campground_id"],
+            }
+        )
+    return tuple(campgrounds)
 
 
 def normalize_text_secret(value: str | None) -> str | None:
@@ -176,6 +294,85 @@ def normalize_booking_date(value: str) -> str:
     if len(normalized) >= 10:
         return normalized[:10]
     return normalized
+
+
+def normalize_campground_search_text(value: str) -> str:
+    normalized = value.lower().translate(UNICODE_SPACE_TRANSLATION)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    words = [
+        word
+        for word in normalized.split()
+        if word
+        not in {
+            "the",
+            "campground",
+            "campgrounds",
+            "camp",
+            "campsite",
+            "campsites",
+            "state",
+            "park",
+            "sp",
+            "national",
+            "forest",
+        }
+    ]
+    return " ".join(words)
+
+
+def campground_match_score(query: str, candidate: CampgroundCandidate) -> float:
+    query_text = normalize_campground_search_text(query)
+    candidate_text = normalize_campground_search_text(candidate.search_text)
+    if not query_text or not candidate_text:
+        return 0.0
+    ratio = difflib.SequenceMatcher(None, query_text, candidate_text).ratio()
+    query_words = set(query_text.split())
+    candidate_words = set(candidate_text.split())
+    overlap = len(query_words & candidate_words) / max(1, len(query_words))
+    contains_bonus = 0.12 if query_text in candidate_text or candidate_text in query_text else 0.0
+    return min(1.0, (ratio * 0.55) + (overlap * 0.45) + contains_bonus)
+
+
+def select_local_candidate(query: str, candidates: list[CampgroundCandidate]) -> CampgroundCandidate | None:
+    if not candidates:
+        return None
+    scored = sorted(
+        ((campground_match_score(query, candidate), candidate) for candidate in candidates),
+        key=lambda item: item[0],
+        reverse=True,
+    )
+    best_score, best = scored[0]
+    second_score = scored[1][0] if len(scored) > 1 else 0.0
+    if best_score >= 0.84 and best_score - second_score >= 0.08:
+        return best
+    return None
+
+
+def derive_search_queries(query: str) -> list[str]:
+    normalized = query.strip()
+    words = normalized.split()
+    queries = [normalized]
+    suffixes = {"campground", "campgrounds", "camp", "campsite", "campsites"}
+    without_suffixes = " ".join(word for word in words if word.lower() not in suffixes)
+    if without_suffixes and without_suffixes != normalized:
+        queries.append(without_suffixes)
+    if len(words) > 2:
+        queries.append(" ".join(words[:3]))
+        queries.append(" ".join(words[:2]))
+    deduped: list[str] = []
+    for item in queries:
+        item = item.strip()
+        if item and item not in deduped:
+            deduped.append(item)
+    return deduped
+
+
+def dedupe_candidates(candidates: Iterable[CampgroundCandidate]) -> list[CampgroundCandidate]:
+    deduped: dict[tuple[str, str, str | int | None], CampgroundCandidate] = {}
+    for candidate in candidates:
+        key = (candidate.provider, candidate.campground_id, candidate.park_id)
+        deduped[key] = candidate
+    return list(deduped.values())
 
 
 def month_starts(today: date, count: int) -> list[date]:
@@ -227,7 +424,7 @@ def fetch_month(campground_id: str, start_day: date, timeout: int) -> dict:
 def parse_openings(campground_name: str, campground_id: str, payload: dict) -> list[Opening]:
     openings: list[Opening] = []
     campground_url = f"https://www.recreation.gov/camping/campgrounds/{campground_id}"
-    for campsite in payload.get("campsites", {}).values():
+    for campsite_id, campsite in payload.get("campsites", {}).items():
         site = str(campsite.get("site", "unknown"))
         for availability_date, status in campsite.get("availabilities", {}).items():
             if status != "Available":
@@ -241,6 +438,7 @@ def parse_openings(campground_name: str, campground_id: str, payload: dict) -> l
                     site=site,
                     date=availability_date[:10],
                     url=campground_url,
+                    campsite_id=str(campsite_id),
                 )
             )
     return openings
@@ -257,6 +455,7 @@ def parse_recreation_openings(park_name: str, campground_name: str, campground_i
             site=item.site,
             date=item.date,
             url=item.url,
+            campsite_id=item.campsite_id,
         )
         for item in openings
     ]
@@ -264,6 +463,240 @@ def parse_recreation_openings(park_name: str, campground_name: str, campground_i
 
 def build_reserve_california_url(park_id: int | str, campground_id: int | str) -> str:
     return f"https://www.reservecalifornia.com/park/{park_id}/{campground_id}"
+
+
+def search_recreation_gov_candidates(query: str) -> list[CampgroundCandidate]:
+    from camply.providers.recreation_dot_gov.recdotgov_camps import RecreationDotGov
+
+    provider = RecreationDotGov()
+    candidates: list[CampgroundCandidate] = []
+    for search_query in derive_search_queries(query):
+        try:
+            results = provider.find_campgrounds(search_string=search_query)
+        except Exception as exc:
+            print(f"Recreation.gov campground search failed for {search_query!r}: {exc}")
+            continue
+        for item in results:
+            candidates.append(
+                CampgroundCandidate(
+                    provider="Recreation.gov",
+                    park_name=str(item.recreation_area),
+                    campground_name=str(item.facility_name),
+                    campground_id=str(item.facility_id),
+                    park_id=getattr(item, "recreation_area_id", None),
+                )
+            )
+    return dedupe_candidates(candidates)
+
+
+def search_reserve_california_candidates(query: str) -> list[CampgroundCandidate]:
+    from camply.providers.usedirect.variations import ReserveCalifornia
+
+    provider = ReserveCalifornia()
+    candidates: list[CampgroundCandidate] = []
+    for search_query in derive_search_queries(query):
+        try:
+            results = provider.find_campgrounds(search_string=search_query, verbose=False)
+        except Exception as exc:
+            print(f"ReserveCalifornia campground search failed for {search_query!r}: {exc}")
+            continue
+        for item in results:
+            candidates.append(
+                CampgroundCandidate(
+                    provider="ReserveCalifornia",
+                    park_name=str(item.recreation_area),
+                    campground_name=str(item.facility_name),
+                    campground_id=str(item.facility_id),
+                    park_id=int(item.recreation_area_id),
+                )
+            )
+    return dedupe_candidates(candidates)
+
+
+def extract_openai_text(payload: dict) -> str:
+    if isinstance(payload.get("output_text"), str):
+        return payload["output_text"]
+    texts: list[str] = []
+    for output in payload.get("output", []):
+        for content in output.get("content", []):
+            text = content.get("text")
+            if isinstance(text, str):
+                texts.append(text)
+    return "\n".join(texts)
+
+
+def select_candidate_with_openai(
+    query: str,
+    candidates: list[CampgroundCandidate],
+    config: Config,
+) -> CampgroundCandidate | None:
+    if not config.openai_api_key or not candidates:
+        return None
+
+    candidate_payload = [
+        {
+            "index": index,
+            "provider": candidate.provider,
+            "park_name": candidate.park_name,
+            "campground_name": candidate.campground_name,
+            "park_id": candidate.park_id,
+            "campground_id": candidate.campground_id,
+        }
+        for index, candidate in enumerate(candidates)
+    ]
+    prompt = (
+        "Choose the one candidate campground that best matches the user's input. "
+        "You must only choose from the provided candidates. If none match, return index null. "
+        "Return strict JSON with keys index, confidence, reason.\n\n"
+        f"User input: {query}\n"
+        f"Candidates: {json.dumps(candidate_payload, ensure_ascii=True)}"
+    )
+    request_body = {
+        "model": config.openai_model,
+        "input": prompt,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "campground_choice",
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "index": {"type": ["integer", "null"]},
+                        "confidence": {"type": "number"},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["index", "confidence", "reason"],
+                },
+                "strict": True,
+            }
+        },
+    }
+    request = Request(
+        OPENAI_RESPONSES_URL,
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config.openai_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=config.request_timeout) as response:
+            parsed = json.load(response)
+    except (HTTPError, URLError, TimeoutError) as exc:
+        print(f"OpenAI candidate selection failed for {query!r}: {exc}")
+        return None
+
+    try:
+        choice = json.loads(extract_openai_text(parsed))
+    except json.JSONDecodeError:
+        print(f"OpenAI returned invalid JSON for {query!r}.")
+        return None
+
+    index = choice.get("index")
+    confidence = float(choice.get("confidence") or 0)
+    if not isinstance(index, int) or index < 0 or index >= len(candidates) or confidence < 0.65:
+        return None
+    return candidates[index]
+
+
+CandidateSearcher = Callable[[str], list[CampgroundCandidate]]
+OpenAISelector = Callable[[str, list[CampgroundCandidate], Config], CampgroundCandidate | None]
+
+
+def resolve_campground_input(
+    query: str,
+    config: Config,
+    recreation_searcher: CandidateSearcher = search_recreation_gov_candidates,
+    reserve_california_searcher: CandidateSearcher = search_reserve_california_candidates,
+    openai_selector: OpenAISelector = select_candidate_with_openai,
+) -> tuple[CampgroundCandidate | None, list[CampgroundCandidate]]:
+    candidates = dedupe_candidates(
+        [*recreation_searcher(query), *reserve_california_searcher(query)]
+    )
+    local_match = select_local_candidate(query, candidates)
+    if local_match:
+        return local_match, candidates
+    ai_match = openai_selector(query, candidates, config)
+    if ai_match:
+        return ai_match, candidates
+    return None, candidates
+
+
+def build_resolved_campgrounds_state(
+    config: Config,
+    *,
+    recreation_searcher: CandidateSearcher = search_recreation_gov_candidates,
+    reserve_california_searcher: CandidateSearcher = search_reserve_california_candidates,
+    openai_selector: OpenAISelector = select_candidate_with_openai,
+    now: datetime | None = None,
+) -> dict:
+    recreation_gov: list[dict] = []
+    reserve_california: list[dict] = []
+    unresolved: list[dict] = []
+
+    for query in config.campground_list:
+        match, candidates = resolve_campground_input(
+            query,
+            config,
+            recreation_searcher=recreation_searcher,
+            reserve_california_searcher=reserve_california_searcher,
+            openai_selector=openai_selector,
+        )
+        if match is None:
+            unresolved.append(
+                {
+                    "input": query,
+                    "candidate_count": len(candidates),
+                    "candidates": [candidate.to_config() | {"provider": candidate.provider} for candidate in candidates[:10]],
+                }
+            )
+            continue
+        if match.provider == "ReserveCalifornia":
+            reserve_california.append(match.to_config())
+        else:
+            recreation_gov.append(match.to_config())
+
+    state = {
+        "version": 1,
+        "desired_inputs": list(config.campground_list),
+        "resolved_at": (now or datetime.now(timezone.utc)).isoformat(),
+        "recreation_gov_campgrounds": recreation_gov,
+        "reserve_california_campgrounds": reserve_california,
+        "unresolved": unresolved,
+        "changed_from_previous": False,
+    }
+    previous = load_resolved_campgrounds_state(config.resolved_campgrounds_path)
+    state["changed_from_previous"] = resolved_campgrounds_changed(previous, state)
+    return state
+
+
+def load_resolved_campgrounds_state(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def resolved_campgrounds_changed(previous: dict | None, current: dict) -> bool:
+    if previous is None:
+        return True
+    keys = (
+        "desired_inputs",
+        "recreation_gov_campgrounds",
+        "reserve_california_campgrounds",
+        "unresolved",
+    )
+    return {key: previous.get(key) for key in keys} != {key: current.get(key) for key in keys}
+
+
+def apply_resolved_campgrounds(config: Config, state: dict) -> Config:
+    return replace(
+        config,
+        recreation_gov_campgrounds=tuple(state.get("recreation_gov_campgrounds", [])),
+        reserve_california_campgrounds=tuple(state.get("reserve_california_campgrounds", [])),
+    )
 
 
 def end_date_for_scan(today: date, scan_months: int) -> date:
@@ -275,7 +708,7 @@ def collect_reserve_california_openings(config: Config, today: date) -> list[Ope
     search_window = SearchWindow(start_date=today, end_date=scan_end)
     openings: list[Opening] = []
 
-    for campground in RESERVE_CALIFORNIA_CAMPGROUNDS:
+    for campground in config.reserve_california_campgrounds:
         search = SearchReserveCalifornia(
             search_window=search_window,
             recreation_area=[campground["park_id"]],
@@ -304,7 +737,7 @@ def collect_openings(config: Config, today: date | None = None) -> list[Opening]
     scan_from = today or date.today()
     openings: list[Opening] = []
 
-    for campground in RECREATION_GOV_CAMPGROUNDS:
+    for campground in config.recreation_gov_campgrounds:
         for month_start in month_starts(scan_from, config.scan_months):
             payload = fetch_month(campground["campground_id"], month_start, config.request_timeout)
             openings.extend(
@@ -342,6 +775,7 @@ def filter_minimum_stay(openings: Iterable[Opening], nights: int) -> list[Openin
                         date=item.date,
                         url=item.url,
                         nights=nights,
+                        campsite_id=item.campsite_id,
                     )
                 )
 
@@ -367,6 +801,7 @@ def build_state(openings: Iterable[Opening]) -> dict:
             "date": opening.date,
             "nights": opening.nights,
             "url": opening.url,
+            "campsite_id": opening.campsite_id,
         }
         for opening in openings
     }
@@ -476,6 +911,296 @@ def email_partially_configured(config: Config) -> bool:
     return bool(provided) and len(provided) != len(values)
 
 
+def recreation_gov_cart_configured(config: Config) -> bool:
+    return bool(config.recreation_gov_username and config.recreation_gov_password)
+
+
+def reserve_california_cart_configured(config: Config) -> bool:
+    return bool(config.reserve_california_username and config.reserve_california_password)
+
+
+def opening_to_report(opening: Opening | None) -> dict | None:
+    if opening is None:
+        return None
+    return {
+        "park_name": opening.park_name,
+        "campground_name": opening.campground_name,
+        "campground_id": opening.campground_id,
+        "provider": opening.provider,
+        "site": opening.site,
+        "date": opening.date,
+        "stay_dates": opening.stay_dates_label,
+        "day_name": opening.day_name,
+        "day_type": opening.day_type,
+        "nights": opening.nights,
+        "url": opening.url,
+        "campsite_id": opening.campsite_id,
+    }
+
+
+def cart_hold_to_report(result: CartHoldResult) -> dict:
+    return {
+        "cart_hold_enabled": result.enabled,
+        "cart_hold_status": result.status,
+        "cart_hold_provider": result.provider,
+        "cart_hold_opening": opening_to_report(result.opening),
+        "cart_hold_error": result.error,
+        "cart_hold_checkout_url": result.checkout_url,
+        "cart_hold_attempted_count": result.attempted_count,
+    }
+
+
+def build_recreation_gov_booking_url(opening: Opening) -> str:
+    params = urlencode(
+        {
+            "startDate": opening.start_date.isoformat(),
+            "endDate": opening.checkout_date.isoformat(),
+        }
+    )
+    if opening.campsite_id:
+        return f"https://www.recreation.gov/camping/campsites/{opening.campsite_id}?{params}"
+    return f"{opening.url}?{params}"
+
+
+def build_reserve_california_booking_url(opening: Opening) -> str:
+    params = urlencode(
+        {
+            "arrivalDate": opening.start_date.isoformat(),
+            "departureDate": opening.checkout_date.isoformat(),
+        }
+    )
+    return f"{opening.url}?{params}"
+
+
+def page_contains_blocking_challenge(page) -> bool:
+    markers = ("captcha", "recaptcha", "verification", "two-factor", "two factor", "2fa")
+    try:
+        body_text = page.locator("body").inner_text(timeout=1000).lower()
+    except Exception:
+        return False
+    return any(marker in body_text for marker in markers)
+
+
+def click_first_available(page, labels: Iterable[str], *, timeout: int = 5000) -> bool:
+    for label in labels:
+        locators = (
+            lambda label=label: page.get_by_role("button", name=label),
+            lambda label=label: page.get_by_role("link", name=label),
+            lambda label=label: page.get_by_text(label, exact=True),
+            lambda label=label: page.locator(f"text={label}"),
+        )
+        for locator_factory in locators:
+            try:
+                locator = locator_factory()
+                locator.first.click(timeout=timeout)
+                return True
+            except Exception:
+                continue
+    return False
+
+
+def fill_first_available(page, labels: Iterable[str], value: str, *, timeout: int = 5000) -> bool:
+    for label in labels:
+        locators = (
+            lambda label=label: page.get_by_label(label),
+            lambda label=label: page.get_by_placeholder(label),
+            lambda label=label: page.locator(label),
+        )
+        for locator_factory in locators:
+            try:
+                locator = locator_factory()
+                locator.first.fill(value, timeout=timeout)
+                return True
+            except Exception:
+                continue
+    return False
+
+
+class RecreationGovCartClient:
+    def __init__(self, username: str, password: str, timeout: int) -> None:
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+
+    def hold(self, opening: Opening) -> CartHoldResult:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise RuntimeError("Playwright is not installed; run `python -m playwright install chromium`.") from exc
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page()
+                return self.hold_with_page(page, opening)
+            finally:
+                browser.close()
+
+    def hold_with_page(self, page, opening: Opening) -> CartHoldResult:
+        page.set_default_timeout(self.timeout * 1000)
+        page.goto("https://www.recreation.gov/", wait_until="domcontentloaded")
+        click_first_available(page, ("Log In", "Sign In", "Login"))
+        if not fill_first_available(page, ("Email", "Email Address", "Username", "input[type='email']"), self.username):
+            raise RuntimeError("Could not find Recreation.gov username field")
+        if not fill_first_available(page, ("Password", "input[type='password']"), self.password):
+            raise RuntimeError("Could not find Recreation.gov password field")
+        if not click_first_available(page, ("Log In", "Sign In", "Login")):
+            raise RuntimeError("Could not submit Recreation.gov login form")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("Recreation.gov login requires CAPTCHA or additional verification")
+
+        page.goto(build_recreation_gov_booking_url(opening), wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("Recreation.gov booking page requires CAPTCHA or additional verification")
+        click_first_available(page, (opening.site,), timeout=3000)
+        if not click_first_available(page, ("Add to Cart", "Reserve", "Book Now", "Continue")):
+            raise RuntimeError("Could not find Recreation.gov Add to Cart button")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("Recreation.gov cart hold requires CAPTCHA or additional verification")
+        return CartHoldResult(
+            enabled=True,
+            status="held",
+            provider=opening.provider,
+            opening=opening,
+            checkout_url=RECREATION_GOV_CHECKOUT_URL,
+            attempted_count=1,
+        )
+
+
+class ReserveCaliforniaCartClient:
+    def __init__(self, username: str, password: str, timeout: int) -> None:
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+
+    def hold(self, opening: Opening) -> CartHoldResult:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise RuntimeError("Playwright is not installed; run `python -m playwright install chromium`.") from exc
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page()
+                return self.hold_with_page(page, opening)
+            finally:
+                browser.close()
+
+    def hold_with_page(self, page, opening: Opening) -> CartHoldResult:
+        page.set_default_timeout(self.timeout * 1000)
+        page.goto("https://www.reservecalifornia.com/", wait_until="domcontentloaded")
+        click_first_available(page, ("Sign In", "Login", "Log In"))
+        if not fill_first_available(page, ("Email", "Email Address", "Username", "input[type='email']"), self.username):
+            raise RuntimeError("Could not find ReserveCalifornia username field")
+        if not fill_first_available(page, ("Password", "input[type='password']"), self.password):
+            raise RuntimeError("Could not find ReserveCalifornia password field")
+        if not click_first_available(page, ("Sign In", "Login", "Log In")):
+            raise RuntimeError("Could not submit ReserveCalifornia login form")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("ReserveCalifornia login requires CAPTCHA or additional verification")
+
+        page.goto(build_reserve_california_booking_url(opening), wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("ReserveCalifornia booking page requires CAPTCHA or additional verification")
+        click_first_available(page, (opening.site,), timeout=3000)
+        if not click_first_available(page, ("Add to Cart", "Reserve", "Book Now", "Continue")):
+            raise RuntimeError("Could not find ReserveCalifornia Add to Cart button")
+        page.wait_for_load_state("networkidle")
+        if page_contains_blocking_challenge(page):
+            raise RuntimeError("ReserveCalifornia cart hold requires CAPTCHA or additional verification")
+        return CartHoldResult(
+            enabled=True,
+            status="held",
+            provider=opening.provider,
+            opening=opening,
+            checkout_url=RESERVE_CALIFORNIA_CHECKOUT_URL,
+            attempted_count=1,
+        )
+
+
+CartClientFactory = Callable[[Opening, Config], RecreationGovCartClient | ReserveCaliforniaCartClient]
+
+
+def default_cart_client_factory(
+    opening: Opening, config: Config
+) -> RecreationGovCartClient | ReserveCaliforniaCartClient:
+    if opening.provider == "Recreation.gov":
+        if not recreation_gov_cart_configured(config):
+            raise RuntimeError("Recreation.gov cart credentials are not configured")
+        return RecreationGovCartClient(
+            config.recreation_gov_username or "",
+            config.recreation_gov_password or "",
+            config.request_timeout,
+        )
+    if opening.provider == "ReserveCalifornia":
+        if not reserve_california_cart_configured(config):
+            raise RuntimeError("ReserveCalifornia cart credentials are not configured")
+        return ReserveCaliforniaCartClient(
+            config.reserve_california_username or "",
+            config.reserve_california_password or "",
+            config.request_timeout,
+        )
+    raise RuntimeError(f"Cart hold is not supported for provider: {opening.provider}")
+
+
+def auto_hold_first_opening(
+    new_openings: list[Opening],
+    config: Config,
+    client_factory: CartClientFactory = default_cart_client_factory,
+) -> CartHoldResult:
+    if not config.auto_cart_enabled:
+        return CartHoldResult(enabled=False, status="disabled")
+    if not new_openings:
+        return CartHoldResult(enabled=True, status="no_new_openings")
+
+    opening = sorted(new_openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))[0]
+    if config.dry_run:
+        return CartHoldResult(
+            enabled=True,
+            status="dry_run_skipped",
+            provider=opening.provider,
+            opening=opening,
+            attempted_count=0,
+        )
+    if opening.provider == "Recreation.gov" and not recreation_gov_cart_configured(config):
+        return CartHoldResult(
+            enabled=True,
+            status="missing_credentials",
+            provider=opening.provider,
+            opening=opening,
+            error="Recreation.gov cart credentials are not configured",
+            attempted_count=0,
+        )
+    if opening.provider == "ReserveCalifornia" and not reserve_california_cart_configured(config):
+        return CartHoldResult(
+            enabled=True,
+            status="missing_credentials",
+            provider=opening.provider,
+            opening=opening,
+            error="ReserveCalifornia cart credentials are not configured",
+            attempted_count=0,
+        )
+
+    try:
+        client = client_factory(opening, config)
+        return client.hold(opening)
+    except Exception as exc:
+        return CartHoldResult(
+            enabled=True,
+            status="failed",
+            provider=opening.provider,
+            opening=opening,
+            error=str(exc),
+            attempted_count=1,
+        )
+
+
 def send_clicksend(messages: list[str], config: Config) -> dict:
     payload = build_clicksend_payload(messages, config)
     credentials = f"{config.clicksend_username}:{config.clicksend_api_key}".encode("utf-8")
@@ -511,11 +1236,17 @@ def send_clicksend(messages: list[str], config: Config) -> dict:
     return parsed
 
 
-def build_email_subject(new_openings: list[Opening]) -> str:
+def build_email_subject(new_openings: list[Opening], cart_hold_result: CartHoldResult | None = None) -> str:
+    if cart_hold_result and cart_hold_result.status == "held":
+        return "Campsite held in cart: complete payment within 15 minutes"
+    if cart_hold_result and cart_hold_result.status in {"failed", "missing_credentials"}:
+        return "Cart hold failed: camping opening found"
     return f"Camping availability found: {len(new_openings)} new opening(s)"
 
 
-def build_email_body(report: dict, new_openings: list[Opening]) -> str:
+def build_email_body(
+    report: dict, new_openings: list[Opening], cart_hold_result: CartHoldResult | None = None
+) -> str:
     lines = [
         "Camping Monitor",
         "",
@@ -525,6 +1256,45 @@ def build_email_body(report: dict, new_openings: list[Opening]) -> str:
         f"New openings found: {report['new_openings_count']}",
         "",
     ]
+    if cart_hold_result and cart_hold_result.opening:
+        opening = cart_hold_result.opening
+        if cart_hold_result.status == "held":
+            lines.extend(
+                [
+                    "A campsite is held in your cart.",
+                    "",
+                    "Please complete payment within about 15 minutes before the hold expires.",
+                    f"Checkout: {cart_hold_result.checkout_url or opening.url}",
+                    "",
+                    "Held opening:",
+                    (
+                        f"- {opening.provider} | {opening.campground_name} | site {opening.site} | "
+                        f"{opening.stay_dates_label} | {opening.day_name} | {opening.day_type} | "
+                        f"{opening.nights} nights"
+                    ),
+                    "",
+                ]
+            )
+            return "\n".join(lines)
+        if cart_hold_result.status in {"failed", "missing_credentials"}:
+            lines.extend(
+                [
+                    "A camping opening was found, but the automatic cart hold did not complete.",
+                    "",
+                    f"Reason: {cart_hold_result.error or cart_hold_result.status}",
+                    f"Manual booking link: {opening.url}",
+                    "",
+                    "Opening:",
+                    (
+                        f"- {opening.provider} | {opening.campground_name} | site {opening.site} | "
+                        f"{opening.stay_dates_label} | {opening.day_name} | {opening.day_type} | "
+                        f"{opening.nights} nights"
+                    ),
+                    "",
+                ]
+            )
+            return "\n".join(lines)
+
     if new_openings:
         lines.extend(["New openings:", ""])
         for opening in new_openings:
@@ -539,12 +1309,17 @@ def build_email_body(report: dict, new_openings: list[Opening]) -> str:
     return "\n".join(lines)
 
 
-def send_gmail_email(report: dict, new_openings: list[Opening], config: Config) -> None:
+def send_gmail_email(
+    report: dict,
+    new_openings: list[Opening],
+    config: Config,
+    cart_hold_result: CartHoldResult | None = None,
+) -> None:
     message = EmailMessage()
-    message["Subject"] = build_email_subject(new_openings)
+    message["Subject"] = build_email_subject(new_openings, cart_hold_result)
     message["From"] = config.email_from or config.gmail_smtp_user
     message["To"] = config.email_to
-    message.set_content(build_email_body(report, new_openings))
+    message.set_content(build_email_body(report, new_openings, cart_hold_result))
 
     with smtplib.SMTP("smtp.gmail.com", 587, timeout=config.request_timeout) as smtp:
         smtp.starttls()
@@ -568,9 +1343,12 @@ def build_run_report(
     sms_messages_sent: int,
     email_status: str,
     email_messages_sent: int,
+    cart_hold_result: CartHoldResult | None = None,
+    resolved_campgrounds_state: dict | None = None,
 ) -> dict:
     generated_at_utc = datetime.now(timezone.utc)
-    return {
+    cart_hold = cart_hold_result or CartHoldResult(enabled=config.auto_cart_enabled, status="not_attempted")
+    report = {
         "generated_at": generated_at_utc.isoformat(),
         "generated_at_display": generated_at_utc.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "scan_months": config.scan_months,
@@ -585,6 +1363,20 @@ def build_run_report(
         "email_messages_sent": email_messages_sent,
         "current_openings_count": len(current_openings),
         "new_openings_count": len(new_openings),
+        "campground_list_enabled": bool(config.campground_list),
+        "campground_list_inputs": list(config.campground_list),
+        "resolved_campgrounds_changed": bool(
+            resolved_campgrounds_state and resolved_campgrounds_state.get("changed_from_previous")
+        ),
+        "resolved_recreation_gov_campgrounds": (
+            resolved_campgrounds_state.get("recreation_gov_campgrounds", []) if resolved_campgrounds_state else []
+        ),
+        "resolved_reserve_california_campgrounds": (
+            resolved_campgrounds_state.get("reserve_california_campgrounds", []) if resolved_campgrounds_state else []
+        ),
+        "unresolved_campgrounds": (
+            resolved_campgrounds_state.get("unresolved", []) if resolved_campgrounds_state else []
+        ),
         "new_openings": [
             {
                 "campground_name": opening.campground_name,
@@ -595,10 +1387,13 @@ def build_run_report(
                 "day_type": opening.day_type,
                 "nights": opening.nights,
                 "url": opening.url,
+                "campsite_id": opening.campsite_id,
             }
             for opening in new_openings
         ],
     }
+    report.update(cart_hold_to_report(cart_hold))
+    return report
 
 
 def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
@@ -613,9 +1408,48 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
         f"- ClickSend configured: `{report['clicksend_configured']}`",
         f"- Email status: `{report['email_status']}`",
         f"- Email configured: `{report['email_configured']}`",
+        f"- Auto cart hold: `{report.get('cart_hold_status', 'not_attempted')}`",
+        f"- Dynamic campground list: `{report.get('campground_list_enabled', False)}`",
         f"- Dry run: `{report['dry_run']}`",
         "",
     ]
+    if report.get("campground_list_enabled"):
+        lines.extend(
+            [
+                "### Resolved campgrounds",
+                "",
+                f"- Changed from previous: `{report.get('resolved_campgrounds_changed', False)}`",
+                f"- Recreation.gov campgrounds: `{len(report.get('resolved_recreation_gov_campgrounds', []))}`",
+                f"- ReserveCalifornia campgrounds: `{len(report.get('resolved_reserve_california_campgrounds', []))}`",
+                f"- Unresolved inputs: `{len(report.get('unresolved_campgrounds', []))}`",
+                "",
+            ]
+        )
+        unresolved = report.get("unresolved_campgrounds", [])
+        if unresolved:
+            lines.extend(["Unresolved campground inputs:", ""])
+            for item in unresolved:
+                lines.append(f"- `{item.get('input')}` ({item.get('candidate_count', 0)} candidate(s))")
+            lines.append("")
+    if report.get("cart_hold_opening"):
+        opening = report["cart_hold_opening"]
+        lines.extend(
+            [
+                "### Cart hold",
+                "",
+                f"- Provider: `{report.get('cart_hold_provider')}`",
+                f"- Status: `{report.get('cart_hold_status')}`",
+                (
+                    f"- Target: `{opening['campground_name']} site {opening['site']} "
+                    f"{opening['stay_dates']}`"
+                ),
+            ]
+        )
+        if report.get("cart_hold_checkout_url"):
+            lines.append(f"- Checkout: [Open cart]({report['cart_hold_checkout_url']})")
+        if report.get("cart_hold_error"):
+            lines.append(f"- Error: `{report['cart_hold_error']}`")
+        lines.append("")
     if report["clicksend_partially_configured"]:
         lines.extend(
             [
@@ -667,12 +1501,33 @@ def write_json(path: Path, payload: dict) -> None:
 
 def main() -> int:
     config = load_config()
+    resolved_campgrounds_state = None
+    if config.campground_list:
+        resolved_campgrounds_state = build_resolved_campgrounds_state(config)
+        write_json(config.resolved_campgrounds_path, resolved_campgrounds_state)
+        config = apply_resolved_campgrounds(config, resolved_campgrounds_state)
+        print(
+            "Resolved campground list: "
+            f"{len(config.recreation_gov_campgrounds)} Recreation.gov, "
+            f"{len(config.reserve_california_campgrounds)} ReserveCalifornia, "
+            f"{len(resolved_campgrounds_state.get('unresolved', []))} unresolved."
+        )
     current_openings = collect_openings(config)
     previous_state = load_state(config.state_path)
     new_openings = diff_new_openings(current_openings, previous_state)
 
     log_openings("Current openings", current_openings)
     log_openings("New openings", new_openings)
+
+    cart_hold_result = auto_hold_first_opening(new_openings, config)
+    if cart_hold_result.opening:
+        print(
+            "Cart hold status: "
+            f"{cart_hold_result.status} for {cart_hold_result.provider} "
+            f"{cart_hold_result.opening.campground_name} site {cart_hold_result.opening.site}."
+        )
+    else:
+        print(f"Cart hold status: {cart_hold_result.status}.")
 
     sms_status = "not_attempted"
     sms_messages_sent = 0
@@ -708,6 +1563,8 @@ def main() -> int:
         sms_messages_sent=sms_messages_sent,
         email_status=email_status,
         email_messages_sent=email_messages_sent,
+        cart_hold_result=cart_hold_result,
+        resolved_campgrounds_state=resolved_campgrounds_state,
     )
 
     if not config.dry_run and new_openings:
@@ -715,7 +1572,7 @@ def main() -> int:
             email_status = "email_partial_config_skipped"
             print("Gmail SMTP is only partially configured. Skipping email and logging only.")
         elif email_configured(config):
-            send_gmail_email(report, new_openings, config)
+            send_gmail_email(report, new_openings, config, cart_hold_result)
             email_status = "sent"
             email_messages_sent = 1
             print("Gmail email sent.")
@@ -733,6 +1590,8 @@ def main() -> int:
         sms_messages_sent=sms_messages_sent,
         email_status=email_status,
         email_messages_sent=email_messages_sent,
+        cart_hold_result=cart_hold_result,
+        resolved_campgrounds_state=resolved_campgrounds_state,
     )
     write_json(config.report_path, report)
     write_text(config.summary_path, build_summary_markdown(report, new_openings))
