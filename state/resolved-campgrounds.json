@@ -1,5 +1,5 @@
 {
-  "changed_from_previous": true,
+  "changed_from_previous": false,
   "desired_inputs": [
     "Yosemite Lower Pines Campground",
     "Yosemite Upper Pines Campground",
@@ -23,7 +23,7 @@
     }
   ],
   "reserve_california_campgrounds": [],
-  "resolved_at": "2026-04-30T16:53:55.916970+00:00",
+  "resolved_at": "2026-04-30T19:53:16.422207+00:00",
   "unresolved": [],
   "version": 1
 }
