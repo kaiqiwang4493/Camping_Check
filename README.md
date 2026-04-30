@@ -4,7 +4,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 
 ## What it does
 
-- Scans all configured campgrounds every 15 minutes in GitHub Actions
+- Scans all configured campgrounds every 10 minutes in GitHub Actions
 - Checks the current month plus the next 5 months by default
 - Alerts only on newly appeared availability
 - Stores current active openings in a tracked state file
@@ -14,6 +14,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Can optionally add the first new opening to your reservation cart so you can finish payment
 - Supports `workflow_dispatch` for manual runs
 - Supports `DRY_RUN=true` for testing without sending notifications or updating state
+- Supports a configurable minimum query interval in minutes via `QUERY_INTERVAL_MINUTES`
 - Filters results to campsites that can be booked for at least 2 consecutive nights
 
 ## Campgrounds
@@ -46,6 +47,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
    - `PHONE_FROM`
    - `YOSEMITE_SCAN_MONTHS`
    - `MORRO_BAY_SCAN_MONTHS`
+   - `QUERY_INTERVAL_MINUTES`
    - `DRY_RUN`
    - `LOG_ISSUE_NUMBER`
 5. If you want automatic cart holds, add these repository secrets:
@@ -141,6 +143,7 @@ DRY_RUN=true python3 -m yosemite_monitor
 - If an automatic cart hold succeeds, the email subject tells you to finish payment within about 15 minutes and includes the cart link.
 - If an automatic cart hold fails, the email includes the failure reason and the manual booking link.
 - By default Yosemite scans 6 months and Morro Bay scans 1 month.
+- The current workflow cron is every 10 minutes, and `QUERY_INTERVAL_MINUTES` can be used to keep the runtime interval aligned.
 
 ## ClickSend note
 

@@ -30,6 +30,7 @@ RESERVE_CALIFORNIA_CHECKOUT_URL = "https://www.reservecalifornia.com/ShoppingCar
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
+DEFAULT_QUERY_INTERVAL_MINUTES = 15
 MIN_STAY_NIGHTS = 2
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 DEFAULT_RESOLVED_CAMPGROUNDS_PATH = Path("state/resolved-campgrounds.json")
@@ -137,6 +138,7 @@ class Config:
     resolved_campgrounds_path: Path = DEFAULT_RESOLVED_CAMPGROUNDS_PATH
     openai_api_key: str | None = None
     openai_model: str = DEFAULT_OPENAI_MODEL
+    query_interval_minutes: int = DEFAULT_QUERY_INTERVAL_MINUTES
 
 
 @dataclass(frozen=True)
@@ -182,6 +184,9 @@ def load_config() -> Config:
     morro_bay_scan_months_raw = os.getenv("MORRO_BAY_SCAN_MONTHS", "").strip() or str(
         DEFAULT_MORRO_BAY_SCAN_MONTHS
     )
+    query_interval_raw = os.getenv("QUERY_INTERVAL_MINUTES", "").strip() or str(
+        DEFAULT_QUERY_INTERVAL_MINUTES
+    )
     try:
         scan_months = max(1, int(scan_months_raw))
     except ValueError as exc:
@@ -192,6 +197,10 @@ def load_config() -> Config:
         raise ValueError(
             f"Invalid MORRO_BAY_SCAN_MONTHS value: {morro_bay_scan_months_raw}"
         ) from exc
+    try:
+        query_interval_minutes = max(1, int(query_interval_raw))
+    except ValueError as exc:
+        raise ValueError(f"Invalid QUERY_INTERVAL_MINUTES value: {query_interval_raw}") from exc
 
     return Config(
         clicksend_username=normalize_text_secret(os.getenv("CLICKSEND_USERNAME")),
@@ -205,6 +214,7 @@ def load_config() -> Config:
         dry_run=os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
         scan_months=scan_months,
         morro_bay_scan_months=morro_bay_scan_months,
+        query_interval_minutes=query_interval_minutes,
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
         request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
         report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
@@ -790,6 +800,32 @@ def load_state(path: Path) -> dict:
         return json.load(handle)
 
 
+def should_skip_for_interval(config: Config, previous_state: dict) -> tuple[bool, str | None]:
+    if config.dry_run:
+        return False, None
+
+    updated_at_raw = previous_state.get("updated_at")
+    if not updated_at_raw:
+        return False, None
+
+    try:
+        last_run = datetime.fromisoformat(updated_at_raw)
+    except ValueError:
+        return False, None
+
+    if last_run.tzinfo is None:
+        last_run = last_run.replace(tzinfo=timezone.utc)
+
+    elapsed_minutes = (datetime.now(timezone.utc) - last_run).total_seconds() / 60
+    if elapsed_minutes < config.query_interval_minutes:
+        return True, (
+            f"Only {elapsed_minutes:.1f} minutes since last successful query; "
+            f"minimum interval is {config.query_interval_minutes} minutes."
+        )
+
+    return False, None
+
+
 def build_state(openings: Iterable[Opening]) -> dict:
     opening_map = {
         opening.key: {
@@ -1252,6 +1288,7 @@ def build_email_body(
         "",
         f"Generated at ({DISPLAY_TIMEZONE_LABEL}): {report['generated_at_display']}",
         f"Scan window: current month + next {report['scan_months'] - 1} month(s)",
+        f"Query interval: {report.get('query_interval_minutes', DEFAULT_QUERY_INTERVAL_MINUTES)} minute(s)",
         f"Current openings found: {report['current_openings_count']}",
         f"New openings found: {report['new_openings_count']}",
         "",
@@ -1304,7 +1341,7 @@ def build_email_body(
                 f"{opening.nights} nights | {opening.url}"
             )
     else:
-        lines.append("No new openings in this run.")
+        lines.append(report.get("skipped_reason") or "No new openings in this run.")
     lines.append("")
     return "\n".join(lines)
 
@@ -1345,6 +1382,7 @@ def build_run_report(
     email_messages_sent: int,
     cart_hold_result: CartHoldResult | None = None,
     resolved_campgrounds_state: dict | None = None,
+    skipped_reason: str | None = None,
 ) -> dict:
     generated_at_utc = datetime.now(timezone.utc)
     cart_hold = cart_hold_result or CartHoldResult(enabled=config.auto_cart_enabled, status="not_attempted")
@@ -1352,6 +1390,7 @@ def build_run_report(
         "generated_at": generated_at_utc.isoformat(),
         "generated_at_display": generated_at_utc.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "scan_months": config.scan_months,
+        "query_interval_minutes": config.query_interval_minutes,
         "dry_run": config.dry_run,
         "clicksend_configured": clicksend_configured(config),
         "clicksend_partially_configured": clicksend_partially_configured(config),
@@ -1361,6 +1400,7 @@ def build_run_report(
         "sms_messages_sent": sms_messages_sent,
         "email_status": email_status,
         "email_messages_sent": email_messages_sent,
+        "skipped_reason": skipped_reason,
         "current_openings_count": len(current_openings),
         "new_openings_count": len(new_openings),
         "campground_list_enabled": bool(config.campground_list),
@@ -1402,6 +1442,7 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
         "",
         f"- Generated at ({DISPLAY_TIMEZONE_LABEL}): `{report['generated_at_display']}`",
         f"- Scan window: current month + next `{report['scan_months'] - 1}` month(s)",
+        f"- Query interval: `{report.get('query_interval_minutes', DEFAULT_QUERY_INTERVAL_MINUTES)}` minute(s)",
         f"- Current openings found: `{report['current_openings_count']}`",
         f"- New openings found: `{report['new_openings_count']}`",
         f"- SMS status: `{report['sms_status']}`",
@@ -1464,6 +1505,8 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
                 "",
             ]
         )
+    if report.get("skipped_reason"):
+        lines.extend([f"> Skipped: {report['skipped_reason']}", ""])
     if new_openings:
         lines.extend(
             [
@@ -1501,6 +1544,27 @@ def write_json(path: Path, payload: dict) -> None:
 
 def main() -> int:
     config = load_config()
+    previous_state = load_state(config.state_path)
+    should_skip, skipped_reason = should_skip_for_interval(config, previous_state)
+    if should_skip:
+        report = build_run_report(
+            config=config,
+            current_openings=[],
+            new_openings=[],
+            sms_status="interval_skipped",
+            sms_messages_sent=0,
+            email_status="interval_skipped",
+            email_messages_sent=0,
+            resolved_campgrounds_state=None,
+            skipped_reason=skipped_reason,
+        )
+        write_json(config.report_path, report)
+        write_text(config.summary_path, build_summary_markdown(report, []))
+        print(skipped_reason)
+        print(f"Run report written to {config.report_path}.")
+        print(f"Run summary written to {config.summary_path}.")
+        return 0
+
     resolved_campgrounds_state = None
     if config.campground_list:
         resolved_campgrounds_state = build_resolved_campgrounds_state(config)
@@ -1565,6 +1629,7 @@ def main() -> int:
         email_messages_sent=email_messages_sent,
         cart_hold_result=cart_hold_result,
         resolved_campgrounds_state=resolved_campgrounds_state,
+        skipped_reason=None,
     )
 
     if not config.dry_run and new_openings:
@@ -1592,6 +1657,7 @@ def main() -> int:
         email_messages_sent=email_messages_sent,
         cart_hold_result=cart_hold_result,
         resolved_campgrounds_state=resolved_campgrounds_state,
+        skipped_reason=None,
     )
     write_json(config.report_path, report)
     write_text(config.summary_path, build_summary_markdown(report, new_openings))

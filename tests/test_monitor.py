@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import unittest
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -46,6 +46,7 @@ from yosemite_monitor.monitor import (
     resolved_campgrounds_changed,
     select_local_candidate,
     save_state,
+    should_skip_for_interval,
 )
 
 
@@ -381,9 +382,11 @@ class MonitorTests(unittest.TestCase):
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
         previous = os.environ.get("YOSEMITE_SCAN_MONTHS")
         previous_morro = os.environ.get("MORRO_BAY_SCAN_MONTHS")
+        previous_interval = os.environ.get("QUERY_INTERVAL_MINUTES")
         try:
             os.environ["YOSEMITE_SCAN_MONTHS"] = ""
             os.environ["MORRO_BAY_SCAN_MONTHS"] = ""
+            os.environ["QUERY_INTERVAL_MINUTES"] = ""
             config = load_config()
         finally:
             if previous is None:
@@ -394,8 +397,39 @@ class MonitorTests(unittest.TestCase):
                 os.environ.pop("MORRO_BAY_SCAN_MONTHS", None)
             else:
                 os.environ["MORRO_BAY_SCAN_MONTHS"] = previous_morro
+            if previous_interval is None:
+                os.environ.pop("QUERY_INTERVAL_MINUTES", None)
+            else:
+                os.environ["QUERY_INTERVAL_MINUTES"] = previous_interval
         self.assertEqual(config.scan_months, 6)
         self.assertEqual(config.morro_bay_scan_months, 1)
+        self.assertEqual(config.query_interval_minutes, 15)
+
+    def test_should_skip_for_interval_when_last_run_too_recent(self) -> None:
+        config = Config(
+            clicksend_username=None,
+            clicksend_api_key=None,
+            phone_to=None,
+            phone_from=None,
+            gmail_smtp_user=None,
+            gmail_smtp_app_password=None,
+            email_to=None,
+            email_from=None,
+            dry_run=False,
+            scan_months=6,
+            morro_bay_scan_months=1,
+            query_interval_minutes=60,
+            state_path=Path("state.json"),
+            request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
+        )
+        previous_state = {
+            "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+        }
+        should_skip, reason = should_skip_for_interval(config, previous_state)
+        self.assertTrue(should_skip)
+        self.assertIn("minimum interval is 60 minutes", reason)
 
     def test_load_config_reads_auto_cart_and_reserve_california_json(self) -> None:
         env = {

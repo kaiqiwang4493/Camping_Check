@@ -2,7 +2,7 @@ name: Monitor Yosemite Camping
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -53,6 +53,7 @@ jobs:
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           YOSEMITE_SCAN_MONTHS: ${{ vars.YOSEMITE_SCAN_MONTHS }}
           MORRO_BAY_SCAN_MONTHS: ${{ vars.MORRO_BAY_SCAN_MONTHS }}
+          QUERY_INTERVAL_MINUTES: ${{ vars.QUERY_INTERVAL_MINUTES }}
           DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
