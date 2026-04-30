@@ -32,6 +32,7 @@ DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
 DEFAULT_QUERY_INTERVAL_MINUTES = 15
 MIN_STAY_NIGHTS = 2
+MIN_LEAD_DAYS = 3
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 DEFAULT_RESOLVED_CAMPGROUNDS_PATH = Path("state/resolved-campgrounds.json")
 DISPLAY_TIMEZONE = ZoneInfo("America/Los_Angeles")
@@ -97,9 +98,7 @@ class Opening:
 
     @property
     def stay_dates_label(self) -> str:
-        if self.nights <= 1:
-            return self.date
-        return f"{self.date} to {self.last_night_date.isoformat()}"
+        return f"{self.date} to {self.checkout_date.isoformat()}"
 
     @property
     def day_name(self) -> str:
@@ -762,6 +761,7 @@ def collect_openings(config: Config, today: date | None = None) -> list[Opening]
     openings.extend(collect_reserve_california_openings(config, scan_from))
 
     openings = filter_minimum_stay(openings, MIN_STAY_NIGHTS)
+    openings = filter_minimum_lead_time(openings, scan_from, MIN_LEAD_DAYS)
     return sorted(openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))
 
 
@@ -790,6 +790,11 @@ def filter_minimum_stay(openings: Iterable[Opening], nights: int) -> list[Openin
                 )
 
     return qualifying
+
+
+def filter_minimum_lead_time(openings: Iterable[Opening], today: date, min_lead_days: int) -> list[Opening]:
+    earliest_start = today + timedelta(days=min_lead_days)
+    return [opening for opening in openings if opening.start_date >= earliest_start]
 
 
 def load_state(path: Path) -> dict:
@@ -1017,6 +1022,11 @@ def page_contains_blocking_challenge(page) -> bool:
     return any(marker in body_text for marker in markers)
 
 
+def first_locator(locator):
+    first = getattr(locator, "first")
+    return first() if callable(first) else first
+
+
 def click_first_available(page, labels: Iterable[str], *, timeout: int = 5000) -> bool:
     for label in labels:
         locators = (
@@ -1028,7 +1038,7 @@ def click_first_available(page, labels: Iterable[str], *, timeout: int = 5000) -
         for locator_factory in locators:
             try:
                 locator = locator_factory()
-                locator.first.click(timeout=timeout)
+                first_locator(locator).click(timeout=timeout)
                 return True
             except Exception:
                 continue
@@ -1045,7 +1055,7 @@ def fill_first_available(page, labels: Iterable[str], value: str, *, timeout: in
         for locator_factory in locators:
             try:
                 locator = locator_factory()
-                locator.first.fill(value, timeout=timeout)
+                first_locator(locator).fill(value, timeout=timeout)
                 return True
             except Exception:
                 continue
@@ -1590,8 +1600,12 @@ def main() -> int:
             f"{cart_hold_result.status} for {cart_hold_result.provider} "
             f"{cart_hold_result.opening.campground_name} site {cart_hold_result.opening.site}."
         )
+        if cart_hold_result.error:
+            print(f"Cart hold error: {cart_hold_result.error}")
     else:
         print(f"Cart hold status: {cart_hold_result.status}.")
+        if cart_hold_result.error:
+            print(f"Cart hold error: {cart_hold_result.error}")
 
     sms_status = "not_attempted"
     sms_messages_sent = 0

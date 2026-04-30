@@ -32,6 +32,7 @@ from yosemite_monitor.monitor import (
     diff_new_openings,
     email_configured,
     email_partially_configured,
+    filter_minimum_lead_time,
     filter_minimum_stay,
     load_state,
     load_config,
@@ -232,7 +233,57 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(len(stays), 1)
         self.assertEqual(stays[0].site, "044")
         self.assertEqual(stays[0].nights, 2)
-        self.assertEqual(stays[0].stay_dates_label, "2026-04-11 to 2026-04-12")
+        self.assertEqual(stays[0].stay_dates_label, "2026-04-11 to 2026-04-13")
+
+    def test_filter_minimum_stay_rejects_single_available_night(self) -> None:
+        openings = [
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="044",
+                date="2026-04-11",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            )
+        ]
+        self.assertEqual(filter_minimum_stay(openings, 2), [])
+
+    def test_filter_minimum_lead_time_ignores_openings_within_three_days(self) -> None:
+        openings = [
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="001",
+                date="2026-04-30",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+                nights=2,
+            ),
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="002",
+                date="2026-05-02",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+                nights=2,
+            ),
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="003",
+                date="2026-05-03",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+                nights=2,
+            ),
+        ]
+        filtered = filter_minimum_lead_time(openings, date(2026, 4, 30), 3)
+        self.assertEqual([opening.site for opening in filtered], ["003"])
 
     def test_chunk_messages_splits_when_too_long(self) -> None:
         openings = [
@@ -376,7 +427,7 @@ class MonitorTests(unittest.TestCase):
         )
         self.assertIn("## Camping Monitor", summary)
         self.assertIn("Generated at (America/Los_Angeles)", summary)
-        self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 | Sunday | Weekend | 1 |", summary)
+        self.assertIn("| Yosemite National Park | North Pines | 101 | 2026-04-12 to 2026-04-13 | Sunday | Weekend | 1 |", summary)
         self.assertIn("partially configured", summary)
 
     def test_load_config_uses_default_when_scan_months_is_blank(self) -> None:
