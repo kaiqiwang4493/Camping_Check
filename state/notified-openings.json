@@ -1,5 +1,83 @@
 {
-  "active_openings": {},
-  "updated_at": "2026-05-02T11:12:10.260360+00:00",
+  "active_openings": {
+    "Recreation.gov|233116|011|2026-10-18|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-18",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-19|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-19",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-20|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-20",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-21|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-21",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-22|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-22",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-23|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-23",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    },
+    "Recreation.gov|233116|011|2026-10-24|2": {
+      "campground_id": "233116",
+      "campground_name": "Kirk Creek Campground",
+      "campsite_id": "90288",
+      "date": "2026-10-24",
+      "nights": 2,
+      "park_name": "Los Padres National Forest,",
+      "provider": "Recreation.gov",
+      "site": "011",
+      "url": "https://www.recreation.gov/camping/campgrounds/233116"
+    }
+  },
+  "updated_at": "2026-05-02T12:04:20.818151+00:00",
   "version": 1
 }
