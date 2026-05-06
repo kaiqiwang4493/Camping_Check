@@ -1,27 +1,5 @@
 {
   "active_openings": {
-    "Recreation.gov|232447|096|2026-05-11|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines Campground",
-      "campsite_id": "295",
-      "date": "2026-05-11",
-      "nights": 2,
-      "park_name": "Yosemite National Park, CA",
-      "provider": "Recreation.gov",
-      "site": "096",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
-    "Recreation.gov|232447|096|2026-05-12|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines Campground",
-      "campsite_id": "295",
-      "date": "2026-05-12",
-      "nights": 2,
-      "park_name": "Yosemite National Park, CA",
-      "provider": "Recreation.gov",
-      "site": "096",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    },
     "Recreation.gov|233116|018|2026-09-30|2": {
       "campground_id": "233116",
       "campground_name": "Kirk Creek Campground",
@@ -45,6 +23,6 @@
       "url": "https://www.recreation.gov/camping/campgrounds/233116"
     }
   },
-  "updated_at": "2026-05-05T22:43:26.686618+00:00",
+  "updated_at": "2026-05-06T01:16:52.354804+00:00",
   "version": 1
 }
