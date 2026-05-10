@@ -10,18 +10,13 @@ from unittest.mock import patch
 
 from yosemite_monitor.monitor import (
     CampgroundCandidate,
-    CartHoldResult,
     Config,
     Opening,
     RECREATION_GOV_CAMPGROUNDS,
-    RecreationGovCartClient,
-    ReserveCaliforniaCartClient,
     apply_resolved_campgrounds,
-    auto_hold_first_opening,
     build_resolved_campgrounds_state,
     build_email_body,
     build_email_subject,
-    build_recreation_gov_booking_url,
     build_reserve_california_url,
     build_clicksend_payload,
     build_summary_markdown,
@@ -49,63 +44,6 @@ from yosemite_monitor.monitor import (
     save_state,
     should_skip_for_interval,
 )
-
-
-class FakeLocator:
-    def __init__(self, page, name: str, *, clickable: bool = True, fillable: bool = True) -> None:
-        self.page = page
-        self.name = name
-        self.clickable = clickable
-        self.fillable = fillable
-
-    @property
-    def first(self):
-        return self
-
-    def click(self, timeout: int = 5000) -> None:
-        if not self.clickable:
-            raise RuntimeError(f"{self.name} is not clickable")
-        self.page.actions.append(("click", self.name))
-
-    def fill(self, value: str, timeout: int = 5000) -> None:
-        if not self.fillable:
-            raise RuntimeError(f"{self.name} is not fillable")
-        self.page.actions.append(("fill", self.name, value))
-
-    def inner_text(self, timeout: int = 1000) -> str:
-        return self.page.body_text
-
-
-class FakePage:
-    def __init__(self) -> None:
-        self.actions = []
-        self.body_text = "normal page"
-
-    def set_default_timeout(self, timeout: int) -> None:
-        self.actions.append(("timeout", timeout))
-
-    def goto(self, url: str, wait_until: str = "load") -> None:
-        self.actions.append(("goto", url, wait_until))
-
-    def wait_for_load_state(self, state: str) -> None:
-        self.actions.append(("wait", state))
-
-    def locator(self, selector: str) -> FakeLocator:
-        if selector == "body":
-            return FakeLocator(self, selector)
-        return FakeLocator(self, selector, fillable=selector.startswith("input"))
-
-    def get_by_role(self, role: str, name: str) -> FakeLocator:
-        return FakeLocator(self, f"{role}:{name}", fillable=False)
-
-    def get_by_text(self, text: str, exact: bool = False) -> FakeLocator:
-        return FakeLocator(self, f"text:{text}", fillable=False)
-
-    def get_by_label(self, label: str) -> FakeLocator:
-        return FakeLocator(self, f"label:{label}", clickable=False)
-
-    def get_by_placeholder(self, label: str) -> FakeLocator:
-        return FakeLocator(self, f"placeholder:{label}", clickable=False)
 
 
 class MonitorTests(unittest.TestCase):
@@ -482,13 +420,8 @@ class MonitorTests(unittest.TestCase):
         self.assertTrue(should_skip)
         self.assertIn("minimum interval is 60 minutes", reason)
 
-    def test_load_config_reads_auto_cart_and_reserve_california_json(self) -> None:
+    def test_load_config_reads_campground_list_and_reserve_california_json(self) -> None:
         env = {
-            "AUTO_CART_ENABLED": "true",
-            "RECREATION_GOV_USERNAME": " camper@example.com ",
-            "RECREATION_GOV_PASSWORD": "secret",
-            "RESERVE_CALIFORNIA_USERNAME": "rc@example.com",
-            "RESERVE_CALIFORNIA_PASSWORD": "rc-secret",
             "RESERVE_CALIFORNIA_CAMPGROUNDS_JSON": json.dumps(
                 [
                     {
@@ -505,8 +438,6 @@ class MonitorTests(unittest.TestCase):
         }
         with patch.dict(os.environ, env, clear=True):
             config = load_config()
-        self.assertTrue(config.auto_cart_enabled)
-        self.assertEqual(config.recreation_gov_username, "camper@example.com")
         self.assertEqual(config.reserve_california_campgrounds[0]["park_id"], 123)
         self.assertEqual(
             config.campground_list,
@@ -737,214 +668,6 @@ class MonitorTests(unittest.TestCase):
         self.assertIn("Sunday", body)
         self.assertIn("Weekend", body)
         self.assertIn("North Pines", body)
-
-    def test_build_email_for_successful_cart_hold_prompts_payment(self) -> None:
-        opening = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-            nights=2,
-        )
-        result = CartHoldResult(
-            enabled=True,
-            status="held",
-            provider="Recreation.gov",
-            opening=opening,
-            checkout_url="https://www.recreation.gov/cart",
-            attempted_count=1,
-        )
-        report = {
-            "generated_at_display": "2026-03-24 17:00:00 PDT",
-            "scan_months": 6,
-            "current_openings_count": 1,
-            "new_openings_count": 1,
-        }
-        self.assertEqual(
-            build_email_subject([opening], result),
-            "Campsite held in cart: complete payment within 15 minutes",
-        )
-        body = build_email_body(report, [opening], result)
-        self.assertIn("complete payment within about 15 minutes", body)
-        self.assertIn("https://www.recreation.gov/cart", body)
-
-    def test_build_email_for_failed_cart_hold_includes_manual_link(self) -> None:
-        opening = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-            nights=2,
-        )
-        result = CartHoldResult(
-            enabled=True,
-            status="failed",
-            provider="Recreation.gov",
-            opening=opening,
-            error="Recreation.gov login requires CAPTCHA or additional verification",
-            attempted_count=1,
-        )
-        report = {
-            "generated_at_display": "2026-03-24 17:00:00 PDT",
-            "scan_months": 6,
-            "current_openings_count": 1,
-            "new_openings_count": 1,
-        }
-        self.assertEqual(build_email_subject([opening], result), "Cart hold failed: camping opening found")
-        body = build_email_body(report, [opening], result)
-        self.assertIn("Manual booking link", body)
-        self.assertIn("CAPTCHA", body)
-
-    def test_auto_hold_first_opening_uses_only_first_sorted_opening(self) -> None:
-        later = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-        )
-        first = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Lower Pines",
-            campground_id="232450",
-            provider="Recreation.gov",
-            site="003",
-            date="2026-04-11",
-            url="https://www.recreation.gov/camping/campgrounds/232450",
-        )
-        config = Config(
-            clicksend_username=None,
-            clicksend_api_key=None,
-            phone_to=None,
-            phone_from=None,
-            gmail_smtp_user=None,
-            gmail_smtp_app_password=None,
-            email_to=None,
-            email_from=None,
-            dry_run=False,
-            scan_months=6,
-            morro_bay_scan_months=1,
-            state_path=Path("state.json"),
-            request_timeout=30,
-            report_path=Path("report.json"),
-            summary_path=Path("summary.md"),
-            auto_cart_enabled=True,
-            recreation_gov_username="user",
-            recreation_gov_password="password",
-        )
-        held = []
-
-        class FakeClient:
-            def hold(self, opening: Opening) -> CartHoldResult:
-                held.append(opening)
-                return CartHoldResult(
-                    enabled=True,
-                    status="held",
-                    provider=opening.provider,
-                    opening=opening,
-                    checkout_url="cart",
-                    attempted_count=1,
-                )
-
-        result = auto_hold_first_opening([later, first], config, lambda opening, config: FakeClient())
-        self.assertEqual(result.status, "held")
-        self.assertEqual(held, [first])
-
-    def test_auto_hold_reports_missing_credentials_without_attempting(self) -> None:
-        opening = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-        )
-        config = Config(
-            clicksend_username=None,
-            clicksend_api_key=None,
-            phone_to=None,
-            phone_from=None,
-            gmail_smtp_user=None,
-            gmail_smtp_app_password=None,
-            email_to=None,
-            email_from=None,
-            dry_run=False,
-            scan_months=6,
-            morro_bay_scan_months=1,
-            state_path=Path("state.json"),
-            request_timeout=30,
-            report_path=Path("report.json"),
-            summary_path=Path("summary.md"),
-            auto_cart_enabled=True,
-        )
-        result = auto_hold_first_opening([opening], config)
-        self.assertEqual(result.status, "missing_credentials")
-        self.assertEqual(result.attempted_count, 0)
-
-    def test_build_recreation_gov_booking_url_prefers_campsite_id(self) -> None:
-        opening = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-            nights=2,
-            campsite_id="101001",
-        )
-        url = build_recreation_gov_booking_url(opening)
-        self.assertIn("/camping/campsites/101001", url)
-        self.assertIn("startDate=2026-04-12", url)
-        self.assertIn("endDate=2026-04-14", url)
-
-    def test_recreation_gov_client_logs_in_and_clicks_add_to_cart(self) -> None:
-        opening = Opening(
-            park_name="Yosemite National Park",
-            campground_name="Upper Pines",
-            campground_id="232447",
-            provider="Recreation.gov",
-            site="044",
-            date="2026-04-12",
-            url="https://www.recreation.gov/camping/campgrounds/232447",
-            nights=2,
-            campsite_id="101001",
-        )
-        page = FakePage()
-        result = RecreationGovCartClient("user@example.com", "password", 30).hold_with_page(page, opening)
-        self.assertEqual(result.status, "held")
-        self.assertIn(("fill", "label:Email", "user@example.com"), page.actions)
-        self.assertIn(("fill", "label:Password", "password"), page.actions)
-        self.assertIn(("click", "button:Add to Cart"), page.actions)
-        self.assertTrue(any(action[0] == "goto" and "/camping/campsites/101001" in action[1] for action in page.actions))
-
-    def test_reserve_california_client_logs_in_and_clicks_add_to_cart(self) -> None:
-        opening = Opening(
-            park_name="Test Park",
-            campground_name="Test Camp",
-            campground_id="456",
-            provider="ReserveCalifornia",
-            site="012",
-            date="2026-04-12",
-            url="https://www.reservecalifornia.com/park/123/456",
-            nights=2,
-        )
-        page = FakePage()
-        result = ReserveCaliforniaCartClient("user@example.com", "password", 30).hold_with_page(page, opening)
-        self.assertEqual(result.status, "held")
-        self.assertIn(("fill", "label:Email", "user@example.com"), page.actions)
-        self.assertIn(("fill", "label:Password", "password"), page.actions)
-        self.assertIn(("click", "button:Add to Cart"), page.actions)
-        self.assertTrue(any(action[0] == "goto" and "reservecalifornia.com/park/123/456" in action[1] for action in page.actions))
 
     def test_normalize_password_secret_removes_unicode_and_regular_spaces(self) -> None:
         raw = "abcd\u00a0efgh ijkl\u202fmnop"

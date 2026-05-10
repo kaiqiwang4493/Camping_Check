@@ -11,7 +11,6 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Writes a run summary that shows up in each GitHub Actions run
 - Can optionally append each run to a fixed GitHub Issue as a log thread
 - Can optionally send Gmail SMTP email when new openings appear
-- Can optionally add the first new opening to your reservation cart so you can finish payment
 - Supports `workflow_dispatch` for manual runs
 - Supports `DRY_RUN=true` for testing without sending notifications or updating state
 - Supports a configurable minimum query interval in minutes via `QUERY_INTERVAL_MINUTES`
@@ -50,14 +49,9 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
    - `QUERY_INTERVAL_MINUTES`
    - `DRY_RUN`
    - `LOG_ISSUE_NUMBER`
-5. If you want automatic cart holds, add these repository secrets:
-   - `RECREATION_GOV_USERNAME`
-   - `RECREATION_GOV_PASSWORD`
-   - optional `RESERVE_CALIFORNIA_USERNAME`
-   - optional `RESERVE_CALIFORNIA_PASSWORD`
+5. If you want AI-assisted campground name matching, add this repository secret:
    - optional `OPENAI_API_KEY`, used only to choose the best match from campground search candidates
 6. Add these repository variables as needed:
-   - `AUTO_CART_ENABLED=true`
    - optional `CAMPGROUND_LIST`, a comma, semicolon, or newline separated list of campground names to monitor
    - optional `OPENAI_MODEL`, defaults to `gpt-5.4-mini`
    - optional `RESERVE_CALIFORNIA_CAMPGROUNDS_JSON`, a JSON array with `park_name`, `park_id`, `campground_name`, and `campground_id`
@@ -78,13 +72,8 @@ If you do not configure ClickSend or Gmail secrets, the workflow still runs and 
    - `CLICKSEND_API_KEY`
    - `PHONE_TO`
    - `PHONE_FROM`
-   - `RECREATION_GOV_USERNAME`
-   - `RECREATION_GOV_PASSWORD`
-   - `RESERVE_CALIFORNIA_USERNAME`
-   - `RESERVE_CALIFORNIA_PASSWORD`
    - `OPENAI_API_KEY`
 4. Use the `Variables` tab for non-secret settings:
-   - `AUTO_CART_ENABLED`, for example `true`
    - `CAMPGROUND_LIST`, for example `Pfeiffer Big Sur Weyland Campground, Yosemite Lower Pines Campground`
    - `OPENAI_MODEL`, optional, defaults to `gpt-5.4-mini`
    - `YOSEMITE_SCAN_MONTHS`, for example `6`
@@ -132,16 +121,13 @@ DRY_RUN=true python3 -m yosemite_monitor
 - If `CAMPGROUND_LIST` is set, it becomes the complete monitor list. The default campgrounds and `RESERVE_CALIFORNIA_CAMPGROUNDS_JSON` are not automatically added unless their names are also in `CAMPGROUND_LIST`.
 - `CAMPGROUND_LIST` accepts loose campground names separated by commas, semicolons, or new lines. The monitor resolves those names into provider IDs and writes the result to `state/resolved-campgrounds.json`.
 - `OPENAI_API_KEY` is optional. When present, OpenAI is used only to choose the best campground from candidates returned by Recreation.gov/RIDB and ReserveCalifornia metadata; it is not allowed to invent campground IDs.
-- When `AUTO_CART_ENABLED=true`, the monitor tries to add only the first new opening to the appropriate cart. If the platform asks for CAPTCHA, two-factor verification, or another manual challenge, the monitor stops and sends an email with the manual booking link instead of trying to bypass it.
-- Recreation.gov and ReserveCalifornia credentials must be stored in GitHub Secrets. Do not store passwords in repository files; base64 or other simple encoding is not secure storage.
+- The monitor does not log in to campground providers or add openings to a reservation cart. It only reports matching availability.
 
 ## Gmail note
 
 - Gmail SMTP uses `smtp.gmail.com` on port `587` with STARTTLS.
 - Use a Google App Password for `GMAIL_SMTP_APP_PASSWORD`.
 - Email is sent only when new openings are found.
-- If an automatic cart hold succeeds, the email subject tells you to finish payment within about 15 minutes and includes the cart link.
-- If an automatic cart hold fails, the email includes the failure reason and the manual booking link.
 - By default Yosemite scans 6 months and Morro Bay scans 1 month.
 - The current workflow cron is every 10 minutes, and `QUERY_INTERVAL_MINUTES` can be used to keep the runtime interval aligned.
 

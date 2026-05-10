@@ -25,8 +25,6 @@ from urllib.request import Request, urlopen
 RECREATION_API_BASE = "https://www.recreation.gov/api/camps/availability/campground"
 CLICKSEND_SMS_URL = "https://rest.clicksend.com/v3/sms/send"
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-RECREATION_GOV_CHECKOUT_URL = "https://www.recreation.gov/cart"
-RESERVE_CALIFORNIA_CHECKOUT_URL = "https://www.reservecalifornia.com/ShoppingCart"
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
@@ -126,11 +124,6 @@ class Config:
     request_timeout: int
     report_path: Path
     summary_path: Path
-    auto_cart_enabled: bool = False
-    recreation_gov_username: str | None = None
-    recreation_gov_password: str | None = None
-    reserve_california_username: str | None = None
-    reserve_california_password: str | None = None
     recreation_gov_campgrounds: tuple[dict, ...] = RECREATION_GOV_CAMPGROUNDS
     reserve_california_campgrounds: tuple[dict, ...] = ()
     campground_list: tuple[str, ...] = ()
@@ -138,17 +131,6 @@ class Config:
     openai_api_key: str | None = None
     openai_model: str = DEFAULT_OPENAI_MODEL
     query_interval_minutes: int = DEFAULT_QUERY_INTERVAL_MINUTES
-
-
-@dataclass(frozen=True)
-class CartHoldResult:
-    enabled: bool
-    status: str
-    provider: str | None = None
-    opening: Opening | None = None
-    error: str | None = None
-    checkout_url: str | None = None
-    attempted_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -218,11 +200,6 @@ def load_config() -> Config:
         request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
         report_path=Path(os.getenv("REPORT_PATH", "state/run-report.json")),
         summary_path=Path(os.getenv("SUMMARY_PATH", "state/run-summary.md")),
-        auto_cart_enabled=parse_bool_env("AUTO_CART_ENABLED"),
-        recreation_gov_username=normalize_text_secret(os.getenv("RECREATION_GOV_USERNAME")),
-        recreation_gov_password=normalize_text_secret(os.getenv("RECREATION_GOV_PASSWORD")),
-        reserve_california_username=normalize_text_secret(os.getenv("RESERVE_CALIFORNIA_USERNAME")),
-        reserve_california_password=normalize_text_secret(os.getenv("RESERVE_CALIFORNIA_PASSWORD")),
         reserve_california_campgrounds=parse_reserve_california_campgrounds(
             os.getenv("RESERVE_CALIFORNIA_CAMPGROUNDS_JSON")
         ),
@@ -952,301 +929,6 @@ def email_partially_configured(config: Config) -> bool:
     return bool(provided) and len(provided) != len(values)
 
 
-def recreation_gov_cart_configured(config: Config) -> bool:
-    return bool(config.recreation_gov_username and config.recreation_gov_password)
-
-
-def reserve_california_cart_configured(config: Config) -> bool:
-    return bool(config.reserve_california_username and config.reserve_california_password)
-
-
-def opening_to_report(opening: Opening | None) -> dict | None:
-    if opening is None:
-        return None
-    return {
-        "park_name": opening.park_name,
-        "campground_name": opening.campground_name,
-        "campground_id": opening.campground_id,
-        "provider": opening.provider,
-        "site": opening.site,
-        "date": opening.date,
-        "stay_dates": opening.stay_dates_label,
-        "day_name": opening.day_name,
-        "day_type": opening.day_type,
-        "nights": opening.nights,
-        "url": opening.url,
-        "campsite_id": opening.campsite_id,
-    }
-
-
-def cart_hold_to_report(result: CartHoldResult) -> dict:
-    return {
-        "cart_hold_enabled": result.enabled,
-        "cart_hold_status": result.status,
-        "cart_hold_provider": result.provider,
-        "cart_hold_opening": opening_to_report(result.opening),
-        "cart_hold_error": result.error,
-        "cart_hold_checkout_url": result.checkout_url,
-        "cart_hold_attempted_count": result.attempted_count,
-    }
-
-
-def build_recreation_gov_booking_url(opening: Opening) -> str:
-    params = urlencode(
-        {
-            "startDate": opening.start_date.isoformat(),
-            "endDate": opening.checkout_date.isoformat(),
-        }
-    )
-    if opening.campsite_id:
-        return f"https://www.recreation.gov/camping/campsites/{opening.campsite_id}?{params}"
-    return f"{opening.url}?{params}"
-
-
-def build_reserve_california_booking_url(opening: Opening) -> str:
-    params = urlencode(
-        {
-            "arrivalDate": opening.start_date.isoformat(),
-            "departureDate": opening.checkout_date.isoformat(),
-        }
-    )
-    return f"{opening.url}?{params}"
-
-
-def page_contains_blocking_challenge(page) -> bool:
-    markers = ("captcha", "recaptcha", "verification", "two-factor", "two factor", "2fa")
-    try:
-        body_text = page.locator("body").inner_text(timeout=1000).lower()
-    except Exception:
-        return False
-    return any(marker in body_text for marker in markers)
-
-
-def first_locator(locator):
-    first = getattr(locator, "first")
-    return first() if callable(first) else first
-
-
-def click_first_available(page, labels: Iterable[str], *, timeout: int = 5000) -> bool:
-    for label in labels:
-        locators = (
-            lambda label=label: page.get_by_role("button", name=label),
-            lambda label=label: page.get_by_role("link", name=label),
-            lambda label=label: page.get_by_text(label, exact=True),
-            lambda label=label: page.locator(f"text={label}"),
-        )
-        for locator_factory in locators:
-            try:
-                locator = locator_factory()
-                first_locator(locator).click(timeout=timeout)
-                return True
-            except Exception:
-                continue
-    return False
-
-
-def fill_first_available(page, labels: Iterable[str], value: str, *, timeout: int = 5000) -> bool:
-    for label in labels:
-        locators = (
-            lambda label=label: page.get_by_label(label),
-            lambda label=label: page.get_by_placeholder(label),
-            lambda label=label: page.locator(label),
-        )
-        for locator_factory in locators:
-            try:
-                locator = locator_factory()
-                first_locator(locator).fill(value, timeout=timeout)
-                return True
-            except Exception:
-                continue
-    return False
-
-
-class RecreationGovCartClient:
-    def __init__(self, username: str, password: str, timeout: int) -> None:
-        self.username = username
-        self.password = password
-        self.timeout = timeout
-
-    def hold(self, opening: Opening) -> CartHoldResult:
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError as exc:
-            raise RuntimeError("Playwright is not installed; run `python -m playwright install chromium`.") from exc
-
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                page = browser.new_page()
-                return self.hold_with_page(page, opening)
-            finally:
-                browser.close()
-
-    def hold_with_page(self, page, opening: Opening) -> CartHoldResult:
-        page.set_default_timeout(self.timeout * 1000)
-        page.goto("https://www.recreation.gov/", wait_until="domcontentloaded")
-        click_first_available(page, ("Log In", "Sign In", "Login"))
-        if not fill_first_available(page, ("Email", "Email Address", "Username", "input[type='email']"), self.username):
-            raise RuntimeError("Could not find Recreation.gov username field")
-        if not fill_first_available(page, ("Password", "input[type='password']"), self.password):
-            raise RuntimeError("Could not find Recreation.gov password field")
-        if not click_first_available(page, ("Log In", "Sign In", "Login")):
-            raise RuntimeError("Could not submit Recreation.gov login form")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("Recreation.gov login requires CAPTCHA or additional verification")
-
-        page.goto(build_recreation_gov_booking_url(opening), wait_until="domcontentloaded")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("Recreation.gov booking page requires CAPTCHA or additional verification")
-        click_first_available(page, (opening.site,), timeout=3000)
-        if not click_first_available(page, ("Add to Cart", "Reserve", "Book Now", "Continue")):
-            raise RuntimeError("Could not find Recreation.gov Add to Cart button")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("Recreation.gov cart hold requires CAPTCHA or additional verification")
-        return CartHoldResult(
-            enabled=True,
-            status="held",
-            provider=opening.provider,
-            opening=opening,
-            checkout_url=RECREATION_GOV_CHECKOUT_URL,
-            attempted_count=1,
-        )
-
-
-class ReserveCaliforniaCartClient:
-    def __init__(self, username: str, password: str, timeout: int) -> None:
-        self.username = username
-        self.password = password
-        self.timeout = timeout
-
-    def hold(self, opening: Opening) -> CartHoldResult:
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError as exc:
-            raise RuntimeError("Playwright is not installed; run `python -m playwright install chromium`.") from exc
-
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                page = browser.new_page()
-                return self.hold_with_page(page, opening)
-            finally:
-                browser.close()
-
-    def hold_with_page(self, page, opening: Opening) -> CartHoldResult:
-        page.set_default_timeout(self.timeout * 1000)
-        page.goto("https://www.reservecalifornia.com/", wait_until="domcontentloaded")
-        click_first_available(page, ("Sign In", "Login", "Log In"))
-        if not fill_first_available(page, ("Email", "Email Address", "Username", "input[type='email']"), self.username):
-            raise RuntimeError("Could not find ReserveCalifornia username field")
-        if not fill_first_available(page, ("Password", "input[type='password']"), self.password):
-            raise RuntimeError("Could not find ReserveCalifornia password field")
-        if not click_first_available(page, ("Sign In", "Login", "Log In")):
-            raise RuntimeError("Could not submit ReserveCalifornia login form")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("ReserveCalifornia login requires CAPTCHA or additional verification")
-
-        page.goto(build_reserve_california_booking_url(opening), wait_until="domcontentloaded")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("ReserveCalifornia booking page requires CAPTCHA or additional verification")
-        click_first_available(page, (opening.site,), timeout=3000)
-        if not click_first_available(page, ("Add to Cart", "Reserve", "Book Now", "Continue")):
-            raise RuntimeError("Could not find ReserveCalifornia Add to Cart button")
-        page.wait_for_load_state("networkidle")
-        if page_contains_blocking_challenge(page):
-            raise RuntimeError("ReserveCalifornia cart hold requires CAPTCHA or additional verification")
-        return CartHoldResult(
-            enabled=True,
-            status="held",
-            provider=opening.provider,
-            opening=opening,
-            checkout_url=RESERVE_CALIFORNIA_CHECKOUT_URL,
-            attempted_count=1,
-        )
-
-
-CartClientFactory = Callable[[Opening, Config], RecreationGovCartClient | ReserveCaliforniaCartClient]
-
-
-def default_cart_client_factory(
-    opening: Opening, config: Config
-) -> RecreationGovCartClient | ReserveCaliforniaCartClient:
-    if opening.provider == "Recreation.gov":
-        if not recreation_gov_cart_configured(config):
-            raise RuntimeError("Recreation.gov cart credentials are not configured")
-        return RecreationGovCartClient(
-            config.recreation_gov_username or "",
-            config.recreation_gov_password or "",
-            config.request_timeout,
-        )
-    if opening.provider == "ReserveCalifornia":
-        if not reserve_california_cart_configured(config):
-            raise RuntimeError("ReserveCalifornia cart credentials are not configured")
-        return ReserveCaliforniaCartClient(
-            config.reserve_california_username or "",
-            config.reserve_california_password or "",
-            config.request_timeout,
-        )
-    raise RuntimeError(f"Cart hold is not supported for provider: {opening.provider}")
-
-
-def auto_hold_first_opening(
-    new_openings: list[Opening],
-    config: Config,
-    client_factory: CartClientFactory = default_cart_client_factory,
-) -> CartHoldResult:
-    if not config.auto_cart_enabled:
-        return CartHoldResult(enabled=False, status="disabled")
-    if not new_openings:
-        return CartHoldResult(enabled=True, status="no_new_openings")
-
-    opening = sorted(new_openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))[0]
-    if config.dry_run:
-        return CartHoldResult(
-            enabled=True,
-            status="dry_run_skipped",
-            provider=opening.provider,
-            opening=opening,
-            attempted_count=0,
-        )
-    if opening.provider == "Recreation.gov" and not recreation_gov_cart_configured(config):
-        return CartHoldResult(
-            enabled=True,
-            status="missing_credentials",
-            provider=opening.provider,
-            opening=opening,
-            error="Recreation.gov cart credentials are not configured",
-            attempted_count=0,
-        )
-    if opening.provider == "ReserveCalifornia" and not reserve_california_cart_configured(config):
-        return CartHoldResult(
-            enabled=True,
-            status="missing_credentials",
-            provider=opening.provider,
-            opening=opening,
-            error="ReserveCalifornia cart credentials are not configured",
-            attempted_count=0,
-        )
-
-    try:
-        client = client_factory(opening, config)
-        return client.hold(opening)
-    except Exception as exc:
-        return CartHoldResult(
-            enabled=True,
-            status="failed",
-            provider=opening.provider,
-            opening=opening,
-            error=str(exc),
-            attempted_count=1,
-        )
-
-
 def send_clicksend(messages: list[str], config: Config) -> dict:
     payload = build_clicksend_payload(messages, config)
     credentials = f"{config.clicksend_username}:{config.clicksend_api_key}".encode("utf-8")
@@ -1282,17 +964,11 @@ def send_clicksend(messages: list[str], config: Config) -> dict:
     return parsed
 
 
-def build_email_subject(new_openings: list[Opening], cart_hold_result: CartHoldResult | None = None) -> str:
-    if cart_hold_result and cart_hold_result.status == "held":
-        return "Campsite held in cart: complete payment within 15 minutes"
-    if cart_hold_result and cart_hold_result.status in {"failed", "missing_credentials"}:
-        return "Cart hold failed: camping opening found"
+def build_email_subject(new_openings: list[Opening]) -> str:
     return f"Camping availability found: {len(new_openings)} new opening(s)"
 
 
-def build_email_body(
-    report: dict, new_openings: list[Opening], cart_hold_result: CartHoldResult | None = None
-) -> str:
+def build_email_body(report: dict, new_openings: list[Opening]) -> str:
     lines = [
         "Camping Monitor",
         "",
@@ -1303,45 +979,6 @@ def build_email_body(
         f"New openings found: {report['new_openings_count']}",
         "",
     ]
-    if cart_hold_result and cart_hold_result.opening:
-        opening = cart_hold_result.opening
-        if cart_hold_result.status == "held":
-            lines.extend(
-                [
-                    "A campsite is held in your cart.",
-                    "",
-                    "Please complete payment within about 15 minutes before the hold expires.",
-                    f"Checkout: {cart_hold_result.checkout_url or opening.url}",
-                    "",
-                    "Held opening:",
-                    (
-                        f"- {opening.provider} | {opening.campground_name} | site {opening.site} | "
-                        f"{opening.stay_dates_label} | {opening.day_name} | {opening.day_type} | "
-                        f"{opening.nights} nights"
-                    ),
-                    "",
-                ]
-            )
-            return "\n".join(lines)
-        if cart_hold_result.status in {"failed", "missing_credentials"}:
-            lines.extend(
-                [
-                    "A camping opening was found, but the automatic cart hold did not complete.",
-                    "",
-                    f"Reason: {cart_hold_result.error or cart_hold_result.status}",
-                    f"Manual booking link: {opening.url}",
-                    "",
-                    "Opening:",
-                    (
-                        f"- {opening.provider} | {opening.campground_name} | site {opening.site} | "
-                        f"{opening.stay_dates_label} | {opening.day_name} | {opening.day_type} | "
-                        f"{opening.nights} nights"
-                    ),
-                    "",
-                ]
-            )
-            return "\n".join(lines)
-
     if new_openings:
         lines.extend(["New openings:", ""])
         for opening in new_openings:
@@ -1360,13 +997,12 @@ def send_gmail_email(
     report: dict,
     new_openings: list[Opening],
     config: Config,
-    cart_hold_result: CartHoldResult | None = None,
 ) -> None:
     message = EmailMessage()
-    message["Subject"] = build_email_subject(new_openings, cart_hold_result)
+    message["Subject"] = build_email_subject(new_openings)
     message["From"] = config.email_from or config.gmail_smtp_user
     message["To"] = config.email_to
-    message.set_content(build_email_body(report, new_openings, cart_hold_result))
+    message.set_content(build_email_body(report, new_openings))
 
     with smtplib.SMTP("smtp.gmail.com", 587, timeout=config.request_timeout) as smtp:
         smtp.starttls()
@@ -1390,12 +1026,10 @@ def build_run_report(
     sms_messages_sent: int,
     email_status: str,
     email_messages_sent: int,
-    cart_hold_result: CartHoldResult | None = None,
     resolved_campgrounds_state: dict | None = None,
     skipped_reason: str | None = None,
 ) -> dict:
     generated_at_utc = datetime.now(timezone.utc)
-    cart_hold = cart_hold_result or CartHoldResult(enabled=config.auto_cart_enabled, status="not_attempted")
     report = {
         "generated_at": generated_at_utc.isoformat(),
         "generated_at_display": generated_at_utc.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -1442,7 +1076,6 @@ def build_run_report(
             for opening in new_openings
         ],
     }
-    report.update(cart_hold_to_report(cart_hold))
     return report
 
 
@@ -1459,7 +1092,6 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
         f"- ClickSend configured: `{report['clicksend_configured']}`",
         f"- Email status: `{report['email_status']}`",
         f"- Email configured: `{report['email_configured']}`",
-        f"- Auto cart hold: `{report.get('cart_hold_status', 'not_attempted')}`",
         f"- Dynamic campground list: `{report.get('campground_list_enabled', False)}`",
         f"- Dry run: `{report['dry_run']}`",
         "",
@@ -1482,25 +1114,6 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
             for item in unresolved:
                 lines.append(f"- `{item.get('input')}` ({item.get('candidate_count', 0)} candidate(s))")
             lines.append("")
-    if report.get("cart_hold_opening"):
-        opening = report["cart_hold_opening"]
-        lines.extend(
-            [
-                "### Cart hold",
-                "",
-                f"- Provider: `{report.get('cart_hold_provider')}`",
-                f"- Status: `{report.get('cart_hold_status')}`",
-                (
-                    f"- Target: `{opening['campground_name']} site {opening['site']} "
-                    f"{opening['stay_dates']}`"
-                ),
-            ]
-        )
-        if report.get("cart_hold_checkout_url"):
-            lines.append(f"- Checkout: [Open cart]({report['cart_hold_checkout_url']})")
-        if report.get("cart_hold_error"):
-            lines.append(f"- Error: `{report['cart_hold_error']}`")
-        lines.append("")
     if report["clicksend_partially_configured"]:
         lines.extend(
             [
@@ -1593,20 +1206,6 @@ def main() -> int:
     log_openings("Current openings", current_openings)
     log_openings("New openings", new_openings)
 
-    cart_hold_result = auto_hold_first_opening(new_openings, config)
-    if cart_hold_result.opening:
-        print(
-            "Cart hold status: "
-            f"{cart_hold_result.status} for {cart_hold_result.provider} "
-            f"{cart_hold_result.opening.campground_name} site {cart_hold_result.opening.site}."
-        )
-        if cart_hold_result.error:
-            print(f"Cart hold error: {cart_hold_result.error}")
-    else:
-        print(f"Cart hold status: {cart_hold_result.status}.")
-        if cart_hold_result.error:
-            print(f"Cart hold error: {cart_hold_result.error}")
-
     sms_status = "not_attempted"
     sms_messages_sent = 0
     email_status = "not_attempted"
@@ -1641,7 +1240,6 @@ def main() -> int:
         sms_messages_sent=sms_messages_sent,
         email_status=email_status,
         email_messages_sent=email_messages_sent,
-        cart_hold_result=cart_hold_result,
         resolved_campgrounds_state=resolved_campgrounds_state,
         skipped_reason=None,
     )
@@ -1651,7 +1249,7 @@ def main() -> int:
             email_status = "email_partial_config_skipped"
             print("Gmail SMTP is only partially configured. Skipping email and logging only.")
         elif email_configured(config):
-            send_gmail_email(report, new_openings, config, cart_hold_result)
+            send_gmail_email(report, new_openings, config)
             email_status = "sent"
             email_messages_sent = 1
             print("Gmail email sent.")
@@ -1669,7 +1267,6 @@ def main() -> int:
         sms_messages_sent=sms_messages_sent,
         email_status=email_status,
         email_messages_sent=email_messages_sent,
-        cart_hold_result=cart_hold_result,
         resolved_campgrounds_state=resolved_campgrounds_state,
         skipped_reason=None,
     )

@@ -28,9 +28,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install project
-        run: |
-          python -m pip install -e .
-          python -m playwright install --with-deps chromium
+        run: python -m pip install -e .
 
       - name: Run monitor
         env:
@@ -42,11 +40,6 @@ jobs:
           GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          AUTO_CART_ENABLED: ${{ vars.AUTO_CART_ENABLED }}
-          RECREATION_GOV_USERNAME: ${{ secrets.RECREATION_GOV_USERNAME }}
-          RECREATION_GOV_PASSWORD: ${{ secrets.RECREATION_GOV_PASSWORD }}
-          RESERVE_CALIFORNIA_USERNAME: ${{ secrets.RESERVE_CALIFORNIA_USERNAME }}
-          RESERVE_CALIFORNIA_PASSWORD: ${{ secrets.RESERVE_CALIFORNIA_PASSWORD }}
           RESERVE_CALIFORNIA_CAMPGROUNDS_JSON: ${{ vars.RESERVE_CALIFORNIA_CAMPGROUNDS_JSON }}
           CAMPGROUND_LIST: ${{ vars.CAMPGROUND_LIST }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
