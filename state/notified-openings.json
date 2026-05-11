@@ -1,17 +1,5 @@
 {
-  "active_openings": {
-    "Recreation.gov|232447|096|2026-05-17|2": {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines Campground",
-      "campsite_id": "295",
-      "date": "2026-05-17",
-      "nights": 2,
-      "park_name": "Yosemite National Park, CA",
-      "provider": "Recreation.gov",
-      "site": "096",
-      "url": "https://www.recreation.gov/camping/campgrounds/232447"
-    }
-  },
-  "updated_at": "2026-05-11T20:58:07.222100+00:00",
+  "active_openings": {},
+  "updated_at": "2026-05-11T22:15:18.889240+00:00",
   "version": 1
 }
