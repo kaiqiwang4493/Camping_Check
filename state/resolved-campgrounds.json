@@ -1,9 +1,9 @@
 {
-  "changed_from_previous": false,
+  "changed_from_previous": true,
   "desired_inputs": [
     "Yosemite Lower Pines Campground",
     "Yosemite Upper Pines Campground",
-    "Kirk Creek Campground"
+    "Oceano Camp (sites 43-82)"
   ],
   "recreation_gov_campgrounds": [
     {
@@ -15,15 +15,17 @@
       "campground_id": "232447",
       "campground_name": "Upper Pines Campground",
       "park_name": "Yosemite National Park, CA"
-    },
-    {
-      "campground_id": "233116",
-      "campground_name": "Kirk Creek Campground",
-      "park_name": "Los Padres National Forest,"
     }
   ],
-  "reserve_california_campgrounds": [],
-  "resolved_at": "2026-06-13T21:37:05.056343+00:00",
+  "reserve_california_campgrounds": [
+    {
+      "campground_id": "618",
+      "campground_name": "Oceano Camp (sites 43-82)",
+      "park_id": 691,
+      "park_name": "Pismo SB"
+    }
+  ],
+  "resolved_at": "2026-06-13T22:41:54.055175+00:00",
   "unresolved": [],
   "version": 1
 }
