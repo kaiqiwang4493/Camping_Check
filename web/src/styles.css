@@ -757,6 +757,77 @@ button {
   overflow: hidden;
 }
 
+.result-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 170px 170px auto;
+  gap: 12px;
+  align-items: end;
+  margin: 4px 0 12px;
+  padding: 14px;
+  border: 1px solid #eadfce;
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.72);
+}
+
+.filter-field {
+  display: grid;
+  gap: 7px;
+}
+
+.filter-field span {
+  color: var(--moss);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.filter-field input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #d9cab7;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fffef9;
+  padding: 0 11px;
+  outline: none;
+}
+
+.filter-field input:focus {
+  box-shadow: 0 0 0 3px rgba(82, 116, 91, 0.16);
+}
+
+.name-filter div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #d9cab7;
+  border-radius: 6px;
+  background: #fffef9;
+  padding: 0 10px;
+}
+
+.name-filter div:focus-within {
+  box-shadow: 0 0 0 3px rgba(82, 116, 91, 0.16);
+}
+
+.name-filter svg {
+  color: var(--moss);
+}
+
+.name-filter input {
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.result-count {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .result-head,
 .result-row {
   display: grid;
@@ -808,6 +879,25 @@ button {
   color: var(--pine);
   font-weight: 700;
   text-decoration: none;
+}
+
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pagination-row span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pagination-row .line-button:disabled,
+.result-filters .line-button:disabled {
+  cursor: default;
 }
 
 .center-state {
@@ -871,6 +961,7 @@ button {
   }
 
   .form-grid,
+  .result-filters,
   .search-line,
   .candidate-row,
   .workflow-status,
@@ -881,5 +972,13 @@ button {
 
   .result-head {
     display: none;
+  }
+
+  .pagination-row {
+    justify-content: stretch;
+  }
+
+  .pagination-row .line-button {
+    flex: 1;
   }
 }

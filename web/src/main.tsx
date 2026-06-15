@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ExternalLink,
   LogOut,
@@ -111,6 +113,8 @@ type WorkflowUiState = {
   url?: string;
 };
 
+const RESULTS_PAGE_SIZE = 20;
+
 const defaultConfig: AppConfig = {
   watched_campgrounds: [],
   settings: {
@@ -169,6 +173,12 @@ function isCandidateWatched(candidate: WatchCampground, watched: WatchCampground
         (candidateName === itemName || candidateName.includes(itemName) || itemName.includes(candidateName)),
     );
   });
+}
+
+function openingDate(opening: Opening): string {
+  const directDate = opening.date?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  if (directDate) return directDate;
+  return opening.stay_dates?.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
 }
 
 function App() {
@@ -824,9 +834,52 @@ function WorkflowStatusCard({ state }: { state: WorkflowUiState }) {
 }
 
 function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; onRefresh: () => void }) {
+  const [nameFilter, setNameFilter] = useState('');
+  const [startFilter, setStartFilter] = useState('');
+  const [endFilter, setEndFilter] = useState('');
+  const [page, setPage] = useState(1);
   const currentOpenings = props.results?.current_openings || [];
   const newOpenings = props.results?.new_openings || [];
   const openings = currentOpenings.length ? currentOpenings : newOpenings;
+  const filteredOpenings = useMemo(() => {
+    const normalizedName = nameFilter.trim().toLowerCase();
+    return [...openings]
+      .sort((left, right) => {
+        const rightDate = openingDate(right);
+        const leftDate = openingDate(left);
+        if (rightDate !== leftDate) return rightDate.localeCompare(leftDate);
+        if (Boolean(right.is_new) !== Boolean(left.is_new)) return Number(Boolean(right.is_new)) - Number(Boolean(left.is_new));
+        return left.campground_name.localeCompare(right.campground_name);
+      })
+      .filter((opening) => {
+        const date = openingDate(opening);
+        const matchesName =
+          !normalizedName || opening.campground_name.toLowerCase().includes(normalizedName);
+        const matchesStart = !startFilter || (date && date >= startFilter);
+        const matchesEnd = !endFilter || (date && date <= endFilter);
+        return matchesName && matchesStart && matchesEnd;
+      });
+  }, [endFilter, nameFilter, openings, startFilter]);
+  const totalPages = Math.max(1, Math.ceil(filteredOpenings.length / RESULTS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * RESULTS_PAGE_SIZE;
+  const pageOpenings = filteredOpenings.slice(pageStart, pageStart + RESULTS_PAGE_SIZE);
+  const hasFilters = Boolean(nameFilter || startFilter || endFilter);
+
+  useEffect(() => {
+    setPage(1);
+  }, [nameFilter, startFilter, endFilter, props.results]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function clearFilters() {
+    setNameFilter('');
+    setStartFilter('');
+    setEndFilter('');
+  }
+
   return (
     <section className="panel wide-panel">
       <div className="section-heading inline">
@@ -839,6 +892,37 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
           {props.loading ? '刷新中' : '刷新'}
         </button>
       </div>
+      <div className="result-filters" aria-label="查询结果筛选">
+        <label className="filter-field name-filter">
+          <span>营地名称</span>
+          <div>
+            <Search size={16} />
+            <input
+              type="search"
+              value={nameFilter}
+              onChange={(event) => setNameFilter(event.target.value)}
+              placeholder="按营地名字筛选"
+            />
+          </div>
+        </label>
+        <label className="filter-field">
+          <span>开始日期</span>
+          <input type="date" value={startFilter} onChange={(event) => setStartFilter(event.target.value)} />
+        </label>
+        <label className="filter-field">
+          <span>结束日期</span>
+          <input type="date" value={endFilter} onChange={(event) => setEndFilter(event.target.value)} />
+        </label>
+        <button className="line-button" onClick={clearFilters} disabled={!hasFilters}>
+          清除筛选
+        </button>
+      </div>
+      <div className="result-count">
+        共 {filteredOpenings.length} 条结果
+        {filteredOpenings.length > 0
+          ? `，显示第 ${pageStart + 1}-${Math.min(pageStart + RESULTS_PAGE_SIZE, filteredOpenings.length)} 条`
+          : ''}
+      </div>
       <div className="result-table">
         <div className="result-head">
           <span>营地</span>
@@ -847,7 +931,7 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
           <span>类型</span>
           <span>链接</span>
         </div>
-        {openings.map((opening, index) => (
+        {pageOpenings.map((opening, index) => (
           <div className="result-row" key={`${opening.campground_name}-${opening.site}-${index}`}>
             <span>
               <strong>{opening.campground_name}</strong>
@@ -865,7 +949,7 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
             </a>
           </div>
         ))}
-        {props.loading && !openings.length && (
+        {props.loading && !filteredOpenings.length && (
           <div className="empty-line roomy">
             <div className="inline-loading">
               <div className="loading-spinner small" />
@@ -873,8 +957,29 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
             </div>
           </div>
         )}
-        {!props.loading && !openings.length && <div className="empty-line roomy">还没有查询结果</div>}
+        {!props.loading && !filteredOpenings.length && (
+          <div className="empty-line roomy">{hasFilters ? '没有符合筛选条件的结果' : '还没有查询结果'}</div>
+        )}
       </div>
+      {filteredOpenings.length > RESULTS_PAGE_SIZE && (
+        <div className="pagination-row">
+          <button className="line-button" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>
+            <ChevronLeft size={16} />
+            上一页
+          </button>
+          <span>
+            第 {currentPage} / {totalPages} 页
+          </span>
+          <button
+            className="line-button"
+            onClick={() => setPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+          >
+            下一页
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </section>
   );
 }
