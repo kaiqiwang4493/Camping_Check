@@ -1,5 +1,138 @@
 {
-  "active_openings": {},
-  "updated_at": "2026-06-15T04:08:17.087779+00:00",
+  "active_openings": {
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-18|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-18",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-19|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-19",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-20|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-20",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-21|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-21",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-22|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-22",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-23|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-23",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-24|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-24",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-25|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-25",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-26|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-26",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-27|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-27",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-28|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-28",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    },
+    "ReserveCalifornia|653|Hike/Bike Campsite #HB1|2026-06-29|2": {
+      "campground_id": "653",
+      "campground_name": "Creekside Loop (sites 1-25)",
+      "campsite_id": null,
+      "date": "2026-06-29",
+      "nights": 2,
+      "park_name": "Samuel P. Taylor SP",
+      "provider": "ReserveCalifornia",
+      "site": "Hike/Bike Campsite #HB1",
+      "url": "https://www.reservecalifornia.com/park/705/653"
+    }
+  },
+  "updated_at": "2026-06-15T10:31:57.249543+00:00",
   "version": 1
 }
