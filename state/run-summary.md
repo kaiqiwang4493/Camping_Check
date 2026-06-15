@@ -1,13 +1,13 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-06-15 15:09:32 PDT`
+- Generated at (America/Los_Angeles): `2026-06-15 16:59:52 PDT`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
-- Current openings found: `373`
-- New openings found: `1`
-- SMS status: `clicksend_not_configured`
+- Current openings found: `0`
+- New openings found: `0`
+- SMS status: `interval_skipped`
 - ClickSend configured: `False`
-- Email status: `sent`
+- Email status: `interval_skipped`
 - Email configured: `True`
 - Dynamic campground list: `True`
 - Dry run: `False`
@@ -15,12 +15,12 @@
 ### Resolved campgrounds
 
 - Changed from previous: `False`
-- Recreation.gov campgrounds: `1`
-- ReserveCalifornia campgrounds: `1`
+- Recreation.gov campgrounds: `0`
+- ReserveCalifornia campgrounds: `0`
 - Unresolved inputs: `0`
+
+> Skipped: Only 110.3 minutes since last successful query; minimum interval is 120 minutes.
 
 ### New openings
 
-| Park | Campground | Site | Stay Dates | Day | Day Type | Nights | Link |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Yosemite National Park, CA | Upper Pines Campground | 165 | 2026-09-16 to 2026-09-17 | Wednesday | Weekday | 1 | [Book](https://www.recreation.gov/camping/campgrounds/232447) |
+No new openings in this run.
