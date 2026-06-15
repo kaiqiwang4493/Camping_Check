@@ -1,17 +1,10 @@
 {
-  "changed_from_previous": false,
+  "changed_from_previous": true,
   "desired_inputs": [
-    "Yosemite Lower Pines Campground",
     "Yosemite Upper Pines Campground",
-    "Oceano Camp (sites 43-82)",
-    "Creekside Loop (sites 1-25)"
+    "Oceano Camp (sites 43-82)"
   ],
   "recreation_gov_campgrounds": [
-    {
-      "campground_id": "232450",
-      "campground_name": "Lower Pines Campground",
-      "park_name": "Yosemite National Park, CA"
-    },
     {
       "campground_id": "232447",
       "campground_name": "Upper Pines Campground",
@@ -24,15 +17,9 @@
       "campground_name": "Oceano Camp (sites 43-82)",
       "park_id": 691,
       "park_name": "Pismo SB"
-    },
-    {
-      "campground_id": "653",
-      "campground_name": "Creekside Loop (sites 1-25)",
-      "park_id": 705,
-      "park_name": "Samuel P. Taylor SP"
     }
   ],
-  "resolved_at": "2026-06-15T16:09:17.265468+00:00",
+  "resolved_at": "2026-06-15T19:54:59.674603+00:00",
   "unresolved": [],
   "version": 1
 }
