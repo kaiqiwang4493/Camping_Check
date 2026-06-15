@@ -4658,6 +4658,21 @@
       "url": "https://www.reservecalifornia.com/park/691/618"
     },
     {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines Campground",
+      "campsite_id": "156",
+      "date": "2026-09-16",
+      "day_name": "Wednesday",
+      "day_type": "Weekday",
+      "is_new": true,
+      "nights": 1,
+      "park_name": "Yosemite National Park, CA",
+      "provider": "Recreation.gov",
+      "site": "165",
+      "stay_dates": "2026-09-16 to 2026-09-17",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
+    {
       "campground_id": "618",
       "campground_name": "Oceano Camp (sites 43-82)",
       "campsite_id": null,
@@ -5588,23 +5603,35 @@
       "url": "https://www.reservecalifornia.com/park/691/618"
     }
   ],
-  "current_openings_count": 372,
+  "current_openings_count": 373,
   "date_mode": "relative",
   "dry_run": false,
   "email_configured": true,
-  "email_messages_sent": 0,
+  "email_messages_sent": 1,
   "email_partially_configured": false,
-  "email_status": "no_new_openings",
+  "email_status": "sent",
   "end_date": null,
-  "generated_at": "2026-06-15T19:55:04.923827+00:00",
-  "generated_at_display": "2026-06-15 12:55:04 PDT",
+  "generated_at": "2026-06-15T22:09:32.597337+00:00",
+  "generated_at_display": "2026-06-15 15:09:32 PDT",
   "lookahead_amount": 4,
   "lookahead_unit": "months",
-  "new_openings": [],
-  "new_openings_count": 0,
+  "new_openings": [
+    {
+      "campground_name": "Upper Pines Campground",
+      "campsite_id": "156",
+      "date": "2026-09-16",
+      "day_name": "Wednesday",
+      "day_type": "Weekday",
+      "nights": 1,
+      "site": "165",
+      "stay_dates": "2026-09-16 to 2026-09-17",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    }
+  ],
+  "new_openings_count": 1,
   "query_interval_minutes": 120,
   "require_weekend_or_holiday": false,
-  "resolved_campgrounds_changed": true,
+  "resolved_campgrounds_changed": false,
   "resolved_recreation_gov_campgrounds": [
     {
       "campground_id": "232447",
@@ -5624,7 +5651,7 @@
   "schedule_enabled": true,
   "skipped_reason": null,
   "sms_messages_sent": 0,
-  "sms_status": "no_new_openings",
+  "sms_status": "clicksend_not_configured",
   "start_date": null,
   "stay_nights": 1,
   "unresolved_campgrounds": []

@@ -1,5 +1,16 @@
 {
   "active_openings": {
+    "Recreation.gov|232447|165|2026-09-16|1": {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines Campground",
+      "campsite_id": "156",
+      "date": "2026-09-16",
+      "nights": 1,
+      "park_name": "Yosemite National Park, CA",
+      "provider": "Recreation.gov",
+      "site": "165",
+      "url": "https://www.recreation.gov/camping/campgrounds/232447"
+    },
     "ReserveCalifornia|618|Campsite #OC43|2026-08-19|1": {
       "campground_id": "618",
       "campground_name": "Oceano Camp (sites 43-82)",
@@ -4093,6 +4104,6 @@
       "url": "https://www.reservecalifornia.com/park/691/618"
     }
   },
-  "updated_at": "2026-06-15T19:55:04.930931+00:00",
+  "updated_at": "2026-06-15T22:09:32.604670+00:00",
   "version": 1
 }
