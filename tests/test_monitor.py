@@ -29,8 +29,11 @@ from yosemite_monitor.monitor import (
     email_partially_configured,
     filter_minimum_lead_time,
     filter_minimum_stay,
+    filter_weekend_or_holiday,
+    is_weekend_or_us_holiday,
     load_state,
     load_config,
+    main,
     month_starts,
     normalize_password_secret,
     normalize_booking_date,
@@ -40,6 +43,7 @@ from yosemite_monitor.monitor import (
     parse_reserve_california_campgrounds,
     resolve_campground_input,
     resolved_campgrounds_changed,
+    scan_window_for_config,
     select_local_candidate,
     save_state,
     should_skip_for_interval,
@@ -393,6 +397,11 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(config.scan_months, 6)
         self.assertEqual(config.morro_bay_scan_months, 1)
         self.assertEqual(config.query_interval_minutes, 15)
+        self.assertEqual(config.stay_nights, 2)
+        self.assertEqual(config.date_mode, "relative")
+        self.assertEqual(config.lookahead_amount, 6)
+        self.assertEqual(config.lookahead_unit, "months")
+        self.assertTrue(config.schedule_enabled)
 
     def test_should_skip_for_interval_when_last_run_too_recent(self) -> None:
         config = Config(
@@ -449,6 +458,102 @@ class MonitorTests(unittest.TestCase):
         )
         self.assertEqual(config.openai_api_key, "openai-key")
         self.assertEqual(config.openai_model, "gpt-test")
+
+    def test_load_config_reads_ui_query_settings(self) -> None:
+        env = {
+            "STAY_NIGHTS": "3",
+            "DATE_MODE": "range",
+            "START_DATE": "2026-07-01",
+            "END_DATE": "2026-07-10",
+            "LOOKAHEAD_AMOUNT": "8",
+            "LOOKAHEAD_UNIT": "weeks",
+            "REQUIRE_WEEKEND_OR_HOLIDAY": "true",
+            "SCHEDULE_ENABLED": "false",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            config = load_config()
+        self.assertEqual(config.stay_nights, 3)
+        self.assertEqual(config.date_mode, "range")
+        self.assertEqual(config.start_date, date(2026, 7, 1))
+        self.assertEqual(config.end_date, date(2026, 7, 10))
+        self.assertEqual(config.lookahead_amount, 8)
+        self.assertEqual(config.lookahead_unit, "weeks")
+        self.assertTrue(config.require_weekend_or_holiday)
+        self.assertFalse(config.schedule_enabled)
+
+    def test_scan_window_supports_relative_weeks_and_explicit_range(self) -> None:
+        relative = Config(
+            clicksend_username=None,
+            clicksend_api_key=None,
+            phone_to=None,
+            phone_from=None,
+            gmail_smtp_user=None,
+            gmail_smtp_app_password=None,
+            email_to=None,
+            email_from=None,
+            dry_run=False,
+            scan_months=6,
+            morro_bay_scan_months=1,
+            state_path=Path("state.json"),
+            request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
+            lookahead_amount=2,
+            lookahead_unit="weeks",
+        )
+        self.assertEqual(
+            scan_window_for_config(relative, date(2026, 6, 1)),
+            (date(2026, 6, 1), date(2026, 6, 15)),
+        )
+        explicit = Config(
+            clicksend_username=None,
+            clicksend_api_key=None,
+            phone_to=None,
+            phone_from=None,
+            gmail_smtp_user=None,
+            gmail_smtp_app_password=None,
+            email_to=None,
+            email_from=None,
+            dry_run=False,
+            scan_months=6,
+            morro_bay_scan_months=1,
+            state_path=Path("state.json"),
+            request_timeout=30,
+            report_path=Path("report.json"),
+            summary_path=Path("summary.md"),
+            date_mode="range",
+            start_date=date(2026, 9, 5),
+            end_date=date(2026, 9, 8),
+        )
+        self.assertEqual(
+            scan_window_for_config(explicit, date(2026, 6, 1)),
+            (date(2026, 9, 5), date(2026, 9, 8)),
+        )
+
+    def test_weekend_or_holiday_filter_keeps_friday_and_federal_holiday(self) -> None:
+        self.assertTrue(is_weekend_or_us_holiday(date(2026, 7, 3)))
+        self.assertFalse(is_weekend_or_us_holiday(date(2026, 7, 7)))
+        openings = [
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="001",
+                date="2026-07-03",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            ),
+            Opening(
+                park_name="Yosemite National Park",
+                campground_name="Upper Pines",
+                campground_id="232447",
+                provider="Recreation.gov",
+                site="002",
+                date="2026-07-07",
+                url="https://www.recreation.gov/camping/campgrounds/232447",
+            ),
+        ]
+        self.assertEqual([item.site for item in filter_weekend_or_holiday(openings)], ["001"])
 
     def test_parse_campground_list_splits_common_separators(self) -> None:
         self.assertEqual(
@@ -696,6 +801,27 @@ class MonitorTests(unittest.TestCase):
             build_reserve_california_url(680, 583),
             "https://www.reservecalifornia.com/park/680/583",
         )
+
+    def test_schedule_event_exits_when_schedule_disabled(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            report_path = Path(temp_dir) / "run-report.json"
+            summary_path = Path(temp_dir) / "run-summary.md"
+            state_path = Path(temp_dir) / "state.json"
+            env = {
+                "GITHUB_EVENT_NAME": "schedule",
+                "SCHEDULE_ENABLED": "false",
+                "REPORT_PATH": str(report_path),
+                "SUMMARY_PATH": str(summary_path),
+                "STATE_PATH": str(state_path),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                exit_code = main()
+
+            self.assertEqual(exit_code, 0)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertFalse(report["schedule_enabled"])
+            self.assertEqual(report["sms_status"], "schedule_disabled")
+            self.assertIn("Scheduled queries are disabled", report["skipped_reason"])
 
 
 if __name__ == "__main__":

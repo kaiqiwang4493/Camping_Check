@@ -47,6 +47,14 @@ jobs:
           YOSEMITE_SCAN_MONTHS: ${{ vars.YOSEMITE_SCAN_MONTHS }}
           MORRO_BAY_SCAN_MONTHS: ${{ vars.MORRO_BAY_SCAN_MONTHS }}
           QUERY_INTERVAL_MINUTES: ${{ vars.QUERY_INTERVAL_MINUTES }}
+          STAY_NIGHTS: ${{ vars.STAY_NIGHTS }}
+          DATE_MODE: ${{ vars.DATE_MODE }}
+          LOOKAHEAD_AMOUNT: ${{ vars.LOOKAHEAD_AMOUNT }}
+          LOOKAHEAD_UNIT: ${{ vars.LOOKAHEAD_UNIT }}
+          START_DATE: ${{ vars.START_DATE }}
+          END_DATE: ${{ vars.END_DATE }}
+          REQUIRE_WEEKEND_OR_HOLIDAY: ${{ vars.REQUIRE_WEEKEND_OR_HOLIDAY }}
+          SCHEDULE_ENABLED: ${{ vars.SCHEDULE_ENABLED }}
           DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
@@ -87,12 +95,12 @@ jobs:
 
       - name: Commit updated state
         run: |
-          if [ -z "$(git status --short -- state/notified-openings.json state/resolved-campgrounds.json)" ]; then
+          if [ -z "$(git status --short -- state/notified-openings.json state/resolved-campgrounds.json state/run-report.json state/run-summary.md)" ]; then
             echo "No state changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state/notified-openings.json state/resolved-campgrounds.json
+          git add state/notified-openings.json state/resolved-campgrounds.json state/run-report.json state/run-summary.md
           git commit -m "Update camping monitor state [skip ci]"
           git push

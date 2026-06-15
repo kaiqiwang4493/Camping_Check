@@ -105,6 +105,74 @@ Dry-run mode:
 DRY_RUN=true python3 -m yosemite_monitor
 ```
 
+## Web console
+
+This project now includes a Google/Firebase web console for managing the monitor.
+
+- Frontend: `web/`, built with Vite, React, TypeScript, and Firebase Authentication
+- Backend API: `yosemite_monitor.web`, built with FastAPI for Cloud Run
+- Hosting: Firebase Hosting
+- API routing: Firebase Hosting rewrites `/api/**` to the Cloud Run service
+- Access control: Google Sign-In plus an email allowlist enforced by both frontend and backend
+
+### Web API environment
+
+Set these on Cloud Run:
+
+- `ALLOWED_EMAILS`: comma-separated Google account emails that can access the app
+- `FIREBASE_PROJECT_ID`: Firebase project ID
+- `GITHUB_TOKEN`: fine-grained GitHub token for the target repository
+- `GITHUB_REPOSITORY`: `owner/repo`
+- `OPENAI_API_KEY`: optional, used only to rank real campground candidates
+- `OPENAI_MODEL`: optional, defaults to `gpt-5.4-mini`
+- `GITHUB_WORKFLOW_ID`: optional, defaults to `monitor.yml`
+
+The browser never receives `GITHUB_TOKEN` or `OPENAI_API_KEY`.
+
+### Frontend environment
+
+Copy `web/.env.example` to `web/.env` for local development and fill in the Firebase web app values:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Build for Firebase Hosting:
+
+```bash
+cd web
+npm run build
+cd ..
+firebase deploy --only hosting
+```
+
+Before deploying, replace `YOUR_FIREBASE_PROJECT_ID` in `.firebaserc` and confirm the Cloud Run service in `firebase.json`:
+
+```json
+"run": {
+  "serviceId": "camping-check-api",
+  "region": "us-central1"
+}
+```
+
+### Cloud Run deployment
+
+Build and deploy the API container:
+
+```bash
+gcloud run deploy camping-check-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars ALLOWED_EMAILS=you@example.com,FIREBASE_PROJECT_ID=your-project-id,GITHUB_REPOSITORY=owner/repo
+```
+
+Set secrets such as `GITHUB_TOKEN` and `OPENAI_API_KEY` with Secret Manager or Cloud Run secret environment variables rather than committing them to the repository.
+
+The Cloud Run service may be publicly reachable at the HTTP layer because Firebase Hosting needs to call it, but every `/api/**` endpoint verifies the Firebase ID token and rejects users whose email is not in `ALLOWED_EMAILS`.
+
 ## Behavior notes
 
 - Recreation.gov requests are sent with browser-like headers because the API may reject generic clients.
@@ -118,6 +186,9 @@ DRY_RUN=true python3 -m yosemite_monitor
 - Results now include a leftmost `Park` column so Yosemite and Morro Bay openings are easy to distinguish.
 - Issue comments and summaries include both the day name and the `Weekend`/`Weekday` classification.
 - Reported openings represent 2-night stay windows, not single-night availability.
+- The stay length can now be configured with `STAY_NIGHTS`.
+- Date windows can be configured with `DATE_MODE=relative|range`, `LOOKAHEAD_AMOUNT`, `LOOKAHEAD_UNIT=weeks|months`, `START_DATE`, and `END_DATE`.
+- `REQUIRE_WEEKEND_OR_HOLIDAY=true` filters openings to Friday, Saturday, Sunday, and observed U.S. federal holidays.
 - If `CAMPGROUND_LIST` is set, it becomes the complete monitor list. The default campgrounds and `RESERVE_CALIFORNIA_CAMPGROUNDS_JSON` are not automatically added unless their names are also in `CAMPGROUND_LIST`.
 - `CAMPGROUND_LIST` accepts loose campground names separated by commas, semicolons, or new lines. The monitor resolves those names into provider IDs and writes the result to `state/resolved-campgrounds.json`.
 - `OPENAI_API_KEY` is optional. When present, OpenAI is used only to choose the best campground from candidates returned by Recreation.gov/RIDB and ReserveCalifornia metadata; it is not allowed to invent campground IDs.

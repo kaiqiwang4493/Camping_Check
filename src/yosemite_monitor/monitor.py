@@ -29,8 +29,11 @@ DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
 DEFAULT_QUERY_INTERVAL_MINUTES = 15
-MIN_STAY_NIGHTS = 2
+DEFAULT_STAY_NIGHTS = 2
 MIN_LEAD_DAYS = 3
+DEFAULT_DATE_MODE = "relative"
+DEFAULT_LOOKAHEAD_AMOUNT = 6
+DEFAULT_LOOKAHEAD_UNIT = "months"
 DEFAULT_STATE_PATH = Path("state/notified-openings.json")
 DEFAULT_RESOLVED_CAMPGROUNDS_PATH = Path("state/resolved-campgrounds.json")
 DISPLAY_TIMEZONE = ZoneInfo("America/Los_Angeles")
@@ -131,6 +134,14 @@ class Config:
     openai_api_key: str | None = None
     openai_model: str = DEFAULT_OPENAI_MODEL
     query_interval_minutes: int = DEFAULT_QUERY_INTERVAL_MINUTES
+    stay_nights: int = DEFAULT_STAY_NIGHTS
+    date_mode: str = DEFAULT_DATE_MODE
+    lookahead_amount: int = DEFAULT_LOOKAHEAD_AMOUNT
+    lookahead_unit: str = DEFAULT_LOOKAHEAD_UNIT
+    start_date: date | None = None
+    end_date: date | None = None
+    require_weekend_or_holiday: bool = False
+    schedule_enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -168,6 +179,12 @@ def load_config() -> Config:
     query_interval_raw = os.getenv("QUERY_INTERVAL_MINUTES", "").strip() or str(
         DEFAULT_QUERY_INTERVAL_MINUTES
     )
+    stay_nights_raw = os.getenv("STAY_NIGHTS", "").strip() or str(DEFAULT_STAY_NIGHTS)
+    date_mode = (os.getenv("DATE_MODE", "").strip() or DEFAULT_DATE_MODE).lower()
+    lookahead_amount_raw = os.getenv("LOOKAHEAD_AMOUNT", "").strip() or str(
+        DEFAULT_LOOKAHEAD_AMOUNT
+    )
+    lookahead_unit = (os.getenv("LOOKAHEAD_UNIT", "").strip() or DEFAULT_LOOKAHEAD_UNIT).lower()
     try:
         scan_months = max(1, int(scan_months_raw))
     except ValueError as exc:
@@ -182,6 +199,18 @@ def load_config() -> Config:
         query_interval_minutes = max(1, int(query_interval_raw))
     except ValueError as exc:
         raise ValueError(f"Invalid QUERY_INTERVAL_MINUTES value: {query_interval_raw}") from exc
+    try:
+        stay_nights = max(1, int(stay_nights_raw))
+    except ValueError as exc:
+        raise ValueError(f"Invalid STAY_NIGHTS value: {stay_nights_raw}") from exc
+    if date_mode not in {"relative", "range"}:
+        raise ValueError(f"Invalid DATE_MODE value: {date_mode}")
+    try:
+        lookahead_amount = max(1, int(lookahead_amount_raw))
+    except ValueError as exc:
+        raise ValueError(f"Invalid LOOKAHEAD_AMOUNT value: {lookahead_amount_raw}") from exc
+    if lookahead_unit not in {"weeks", "months"}:
+        raise ValueError(f"Invalid LOOKAHEAD_UNIT value: {lookahead_unit}")
 
     return Config(
         clicksend_username=normalize_text_secret(os.getenv("CLICKSEND_USERNAME")),
@@ -209,11 +238,36 @@ def load_config() -> Config:
         ),
         openai_api_key=normalize_text_secret(os.getenv("OPENAI_API_KEY")),
         openai_model=normalize_text_secret(os.getenv("OPENAI_MODEL")) or DEFAULT_OPENAI_MODEL,
+        stay_nights=stay_nights,
+        date_mode=date_mode,
+        lookahead_amount=lookahead_amount,
+        lookahead_unit=lookahead_unit,
+        start_date=parse_optional_date(os.getenv("START_DATE"), "START_DATE"),
+        end_date=parse_optional_date(os.getenv("END_DATE"), "END_DATE"),
+        require_weekend_or_holiday=parse_bool_env("REQUIRE_WEEKEND_OR_HOLIDAY"),
+        schedule_enabled=parse_bool_env_default("SCHEDULE_ENABLED", True),
     )
 
 
 def parse_bool_env(name: str) -> bool:
     return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
+
+
+def parse_bool_env_default(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.lower() in {"1", "true", "yes", "on"}
+
+
+def parse_optional_date(raw: str | None, name: str) -> date | None:
+    normalized = normalize_text_secret(raw)
+    if normalized is None:
+        return None
+    try:
+        return date.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ValueError(f"Invalid {name} value: {normalized}") from exc
 
 
 def parse_campground_list(raw: str | None) -> tuple[str, ...]:
@@ -371,6 +425,76 @@ def month_starts(today: date, count: int) -> list[date]:
         current_month = (month_index % 12) + 1
         months.append(date(current_year, current_month, 1))
     return months
+
+
+def month_starts_between(start_day: date, end_day: date) -> list[date]:
+    months: list[date] = []
+    current = date(start_day.year, start_day.month, 1)
+    final = date(end_day.year, end_day.month, 1)
+    while current <= final:
+        months.append(current)
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+    return months
+
+
+def scan_window_for_config(config: Config, today: date) -> tuple[date, date]:
+    if config.date_mode == "range":
+        start = config.start_date or today
+        end = config.end_date or start
+        if end < start:
+            raise ValueError("END_DATE must be on or after START_DATE")
+        return start, end
+
+    if config.lookahead_unit == "weeks":
+        return today, today + timedelta(weeks=config.lookahead_amount)
+    return today, end_date_for_scan(today, config.lookahead_amount) - timedelta(days=1)
+
+
+def nth_weekday(year: int, month: int, weekday: int, nth: int) -> date:
+    current = date(year, month, 1)
+    offset = (weekday - current.weekday()) % 7
+    return current + timedelta(days=offset + (nth - 1) * 7)
+
+
+def last_weekday(year: int, month: int, weekday: int) -> date:
+    if month == 12:
+        current = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        current = date(year, month + 1, 1) - timedelta(days=1)
+    offset = (current.weekday() - weekday) % 7
+    return current - timedelta(days=offset)
+
+
+def observed_fixed_holiday(year: int, month: int, day: int) -> date:
+    holiday = date(year, month, day)
+    if holiday.weekday() == 5:
+        return holiday - timedelta(days=1)
+    if holiday.weekday() == 6:
+        return holiday + timedelta(days=1)
+    return holiday
+
+
+def us_federal_holidays(year: int) -> set[date]:
+    return {
+        observed_fixed_holiday(year, 1, 1),
+        nth_weekday(year, 1, 0, 3),
+        nth_weekday(year, 2, 0, 3),
+        last_weekday(year, 5, 0),
+        observed_fixed_holiday(year, 6, 19),
+        observed_fixed_holiday(year, 7, 4),
+        nth_weekday(year, 9, 0, 1),
+        nth_weekday(year, 10, 0, 2),
+        observed_fixed_holiday(year, 11, 11),
+        nth_weekday(year, 11, 3, 4),
+        observed_fixed_holiday(year, 12, 25),
+    }
+
+
+def is_weekend_or_us_holiday(value: date) -> bool:
+    return value.weekday() >= 4 or value in us_federal_holidays(value.year)
 
 
 def build_recreation_headers() -> dict[str, str]:
@@ -689,9 +813,12 @@ def end_date_for_scan(today: date, scan_months: int) -> date:
     return month_starts(today, scan_months + 1)[-1]
 
 
-def collect_reserve_california_openings(config: Config, today: date) -> list[Opening]:
-    scan_end = end_date_for_scan(today, config.morro_bay_scan_months)
-    search_window = SearchWindow(start_date=today, end_date=scan_end)
+def collect_reserve_california_openings(
+    config: Config,
+    start_day: date,
+    end_day: date,
+) -> list[Opening]:
+    search_window = SearchWindow(start_date=start_day, end_date=end_day)
     openings: list[Opening] = []
 
     for campground in config.reserve_california_campgrounds:
@@ -721,10 +848,11 @@ def collect_reserve_california_openings(config: Config, today: date) -> list[Ope
 
 def collect_openings(config: Config, today: date | None = None) -> list[Opening]:
     scan_from = today or date.today()
+    scan_start, scan_end = scan_window_for_config(config, scan_from)
     openings: list[Opening] = []
 
     for campground in config.recreation_gov_campgrounds:
-        for month_start in month_starts(scan_from, config.scan_months):
+        for month_start in month_starts_between(scan_start, scan_end):
             payload = fetch_month(campground["campground_id"], month_start, config.request_timeout)
             openings.extend(
                 parse_recreation_openings(
@@ -735,11 +863,22 @@ def collect_openings(config: Config, today: date | None = None) -> list[Opening]
                 )
             )
 
-    openings.extend(collect_reserve_california_openings(config, scan_from))
+    openings.extend(collect_reserve_california_openings(config, scan_start, scan_end))
 
-    openings = filter_minimum_stay(openings, MIN_STAY_NIGHTS)
+    openings = filter_date_window(openings, scan_start, scan_end)
+    openings = filter_minimum_stay(openings, config.stay_nights)
     openings = filter_minimum_lead_time(openings, scan_from, MIN_LEAD_DAYS)
+    if config.require_weekend_or_holiday:
+        openings = filter_weekend_or_holiday(openings)
     return sorted(openings, key=lambda item: (item.date, item.park_name, item.campground_name, item.site))
+
+
+def filter_date_window(openings: Iterable[Opening], start_day: date, end_day: date) -> list[Opening]:
+    return [opening for opening in openings if start_day <= opening.start_date <= end_day]
+
+
+def filter_weekend_or_holiday(openings: Iterable[Opening]) -> list[Opening]:
+    return [opening for opening in openings if is_weekend_or_us_holiday(opening.start_date)]
 
 
 def filter_minimum_stay(openings: Iterable[Opening], nights: int) -> list[Opening]:
@@ -1035,6 +1174,14 @@ def build_run_report(
         "generated_at_display": generated_at_utc.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "scan_months": config.scan_months,
         "query_interval_minutes": config.query_interval_minutes,
+        "stay_nights": config.stay_nights,
+        "date_mode": config.date_mode,
+        "lookahead_amount": config.lookahead_amount,
+        "lookahead_unit": config.lookahead_unit,
+        "start_date": config.start_date.isoformat() if config.start_date else None,
+        "end_date": config.end_date.isoformat() if config.end_date else None,
+        "require_weekend_or_holiday": config.require_weekend_or_holiday,
+        "schedule_enabled": config.schedule_enabled,
         "dry_run": config.dry_run,
         "clicksend_configured": clicksend_configured(config),
         "clicksend_partially_configured": clicksend_partially_configured(config),
@@ -1074,6 +1221,24 @@ def build_run_report(
                 "campsite_id": opening.campsite_id,
             }
             for opening in new_openings
+        ],
+        "current_openings": [
+            {
+                "park_name": opening.park_name,
+                "campground_name": opening.campground_name,
+                "campground_id": opening.campground_id,
+                "provider": opening.provider,
+                "site": opening.site,
+                "date": opening.date,
+                "stay_dates": opening.stay_dates_label,
+                "day_name": opening.day_name,
+                "day_type": opening.day_type,
+                "nights": opening.nights,
+                "url": opening.url,
+                "campsite_id": opening.campsite_id,
+                "is_new": opening in new_openings,
+            }
+            for opening in current_openings
         ],
     }
     return report
@@ -1167,6 +1332,26 @@ def write_json(path: Path, payload: dict) -> None:
 
 def main() -> int:
     config = load_config()
+    if os.getenv("GITHUB_EVENT_NAME") == "schedule" and not config.schedule_enabled:
+        skipped_reason = "Scheduled queries are disabled by SCHEDULE_ENABLED=false."
+        report = build_run_report(
+            config=config,
+            current_openings=[],
+            new_openings=[],
+            sms_status="schedule_disabled",
+            sms_messages_sent=0,
+            email_status="schedule_disabled",
+            email_messages_sent=0,
+            resolved_campgrounds_state=None,
+            skipped_reason=skipped_reason,
+        )
+        write_json(config.report_path, report)
+        write_text(config.summary_path, build_summary_markdown(report, []))
+        print(skipped_reason)
+        print(f"Run report written to {config.report_path}.")
+        print(f"Run summary written to {config.summary_path}.")
+        return 0
+
     previous_state = load_state(config.state_path)
     should_skip, skipped_reason = should_skip_for_interval(config, previous_state)
     if should_skip:
