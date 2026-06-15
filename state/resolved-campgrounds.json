@@ -1,5 +1,5 @@
 {
-  "changed_from_previous": true,
+  "changed_from_previous": false,
   "desired_inputs": [
     "Yosemite Lower Pines Campground",
     "Yosemite Upper Pines Campground",
@@ -32,7 +32,7 @@
       "park_name": "Samuel P. Taylor SP"
     }
   ],
-  "resolved_at": "2026-06-15T10:31:53.545607+00:00",
+  "resolved_at": "2026-06-15T16:09:17.265468+00:00",
   "unresolved": [],
   "version": 1
 }
