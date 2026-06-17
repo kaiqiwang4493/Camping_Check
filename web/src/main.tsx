@@ -845,11 +845,15 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
     const normalizedName = nameFilter.trim().toLowerCase();
     return [...openings]
       .sort((left, right) => {
+        if (Boolean(right.is_new) !== Boolean(left.is_new)) {
+          return Number(Boolean(right.is_new)) - Number(Boolean(left.is_new));
+        }
         const rightDate = openingDate(right);
         const leftDate = openingDate(left);
         if (rightDate !== leftDate) return rightDate.localeCompare(leftDate);
-        if (Boolean(right.is_new) !== Boolean(left.is_new)) return Number(Boolean(right.is_new)) - Number(Boolean(left.is_new));
-        return left.campground_name.localeCompare(right.campground_name);
+        const campgroundOrder = left.campground_name.localeCompare(right.campground_name);
+        if (campgroundOrder !== 0) return campgroundOrder;
+        return left.site.localeCompare(right.site);
       })
       .filter((opening) => {
         const date = openingDate(opening);
