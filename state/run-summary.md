@@ -1,13 +1,13 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-06-18 16:02:02 PDT`
+- Generated at (America/Los_Angeles): `2026-06-18 18:49:54 PDT`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
 - Current openings found: `0`
 - New openings found: `0`
-- SMS status: `interval_skipped`
+- SMS status: `no_new_openings`
 - ClickSend configured: `False`
-- Email status: `interval_skipped`
+- Email status: `no_new_openings`
 - Email configured: `True`
 - Dynamic campground list: `True`
 - Dry run: `False`
@@ -15,11 +15,13 @@
 ### Resolved campgrounds
 
 - Changed from previous: `False`
-- Recreation.gov campgrounds: `0`
+- Recreation.gov campgrounds: `1`
 - ReserveCalifornia campgrounds: `0`
-- Unresolved inputs: `0`
+- Unresolved inputs: `1`
 
-> Skipped: Only 113.4 minutes since last successful query; minimum interval is 120 minutes.
+Unresolved campground inputs:
+
+- `Oceano Camp (sites 43-82)` (0 candidate(s))
 
 ### New openings
 

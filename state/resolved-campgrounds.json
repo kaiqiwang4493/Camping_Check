@@ -1,5 +1,5 @@
 {
-  "changed_from_previous": true,
+  "changed_from_previous": false,
   "desired_inputs": [
     "Yosemite Upper Pines Campground",
     "Oceano Camp (sites 43-82)"
@@ -12,7 +12,7 @@
     }
   ],
   "reserve_california_campgrounds": [],
-  "resolved_at": "2026-06-18T21:08:40.386788+00:00",
+  "resolved_at": "2026-06-19T01:49:53.091835+00:00",
   "unresolved": [
     {
       "candidate_count": 0,
