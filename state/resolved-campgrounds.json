@@ -1,5 +1,5 @@
 {
-  "changed_from_previous": false,
+  "changed_from_previous": true,
   "desired_inputs": [
     "Yosemite Upper Pines Campground",
     "Oceano Camp (sites 43-82)"
@@ -11,14 +11,15 @@
       "park_name": "Yosemite National Park, CA"
     }
   ],
-  "reserve_california_campgrounds": [],
-  "resolved_at": "2026-06-19T06:55:14.117853+00:00",
-  "unresolved": [
+  "reserve_california_campgrounds": [
     {
-      "candidate_count": 0,
-      "candidates": [],
-      "input": "Oceano Camp (sites 43-82)"
+      "campground_id": "618",
+      "campground_name": "Oceano Camp (sites 43-82)",
+      "park_id": 691,
+      "park_name": "Pismo SB"
     }
   ],
+  "resolved_at": "2026-06-19T11:11:53.176851+00:00",
+  "unresolved": [],
   "version": 1
 }
