@@ -15,15 +15,15 @@
   "email_partially_configured": false,
   "email_status": "no_new_openings",
   "end_date": null,
-  "generated_at": "2026-06-19T14:22:34.088425+00:00",
-  "generated_at_display": "2026-06-19 07:22:34 PDT",
+  "generated_at": "2026-06-19T16:44:38.170213+00:00",
+  "generated_at_display": "2026-06-19 09:44:38 PDT",
   "lookahead_amount": 4,
   "lookahead_unit": "months",
   "new_openings": [],
   "new_openings_count": 0,
   "query_interval_minutes": 120,
   "require_weekend_or_holiday": true,
-  "resolved_campgrounds_changed": true,
+  "resolved_campgrounds_changed": false,
   "resolved_recreation_gov_campgrounds": [
     {
       "campground_id": "232447",

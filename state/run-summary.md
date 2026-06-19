@@ -1,6 +1,6 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-06-19 07:22:34 PDT`
+- Generated at (America/Los_Angeles): `2026-06-19 09:44:38 PDT`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
 - Current openings found: `0`
@@ -14,7 +14,7 @@
 
 ### Resolved campgrounds
 
-- Changed from previous: `True`
+- Changed from previous: `False`
 - Recreation.gov campgrounds: `1`
 - ReserveCalifornia campgrounds: `0`
 - Unresolved inputs: `1`
