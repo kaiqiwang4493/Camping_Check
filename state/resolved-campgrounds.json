@@ -1,5 +1,5 @@
 {
-  "changed_from_previous": true,
+  "changed_from_previous": false,
   "desired_inputs": [
     "Yosemite Upper Pines Campground",
     "Oceano Camp (sites 43-82)"
@@ -19,7 +19,7 @@
       "park_name": "Pismo SB"
     }
   ],
-  "resolved_at": "2026-06-20T18:00:56.136869+00:00",
+  "resolved_at": "2026-06-20T22:19:02.522102+00:00",
   "unresolved": [],
   "version": 1
 }

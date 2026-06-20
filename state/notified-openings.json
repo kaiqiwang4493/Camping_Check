@@ -99,17 +99,6 @@
       "site": "Campsite #OC47",
       "url": "https://www.reservecalifornia.com/park/691/618"
     },
-    "ReserveCalifornia|618|Campsite #OC48|2026-07-05|2": {
-      "campground_id": "618",
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "campsite_id": null,
-      "date": "2026-07-05",
-      "nights": 2,
-      "park_name": "Pismo SB",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #OC48",
-      "url": "https://www.reservecalifornia.com/park/691/618"
-    },
     "ReserveCalifornia|618|Campsite #OC48|2026-09-13|2": {
       "campground_id": "618",
       "campground_name": "Oceano Camp (sites 43-82)",
@@ -693,17 +682,6 @@
       "site": "Campsite #OC76",
       "url": "https://www.reservecalifornia.com/park/691/618"
     },
-    "ReserveCalifornia|618|Campsite #OC77|2026-06-28|2": {
-      "campground_id": "618",
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "campsite_id": null,
-      "date": "2026-06-28",
-      "nights": 2,
-      "park_name": "Pismo SB",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #OC77",
-      "url": "https://www.reservecalifornia.com/park/691/618"
-    },
     "ReserveCalifornia|618|Campsite #OC77|2026-09-07|2": {
       "campground_id": "618",
       "campground_name": "Oceano Camp (sites 43-82)",
@@ -771,6 +749,6 @@
       "url": "https://www.reservecalifornia.com/park/691/618"
     }
   },
-  "updated_at": "2026-06-20T18:01:05.063050+00:00",
+  "updated_at": "2026-06-20T22:19:07.649770+00:00",
   "version": 1
 }
