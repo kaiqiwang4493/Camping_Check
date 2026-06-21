@@ -1,13 +1,13 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-06-20 16:38:15 PDT`
+- Generated at (America/Los_Angeles): `2026-06-20 19:02:33 PDT`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
-- Current openings found: `0`
+- Current openings found: `68`
 - New openings found: `0`
-- SMS status: `interval_skipped`
+- SMS status: `no_new_openings`
 - ClickSend configured: `False`
-- Email status: `interval_skipped`
+- Email status: `no_new_openings`
 - Email configured: `True`
 - Dynamic campground list: `True`
 - Dry run: `False`
@@ -15,11 +15,9 @@
 ### Resolved campgrounds
 
 - Changed from previous: `False`
-- Recreation.gov campgrounds: `0`
-- ReserveCalifornia campgrounds: `0`
+- Recreation.gov campgrounds: `1`
+- ReserveCalifornia campgrounds: `1`
 - Unresolved inputs: `0`
-
-> Skipped: Only 79.1 minutes since last successful query; minimum interval is 120 minutes.
 
 ### New openings
 
