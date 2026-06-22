@@ -229,14 +229,30 @@ function App() {
     if (!user || !isAllowed) return;
     setBusy('loading');
     try {
-      const [nextConfig, nextStatus, nextResults] = await Promise.all([
+      const [nextConfig, nextStatus, nextResults, latestWorkflow] = await Promise.all([
         apiFetch<AppConfig>('/api/config'),
         apiFetch<StatusPayload>('/api/status'),
         apiFetch<ResultsPayload>('/api/results'),
+        apiFetch<WorkflowStatusPayload>('/api/workflow/latest'),
       ]);
       setConfig(nextConfig);
       setStatus(nextStatus);
       setResults(nextResults);
+      if (latestWorkflow.status === 'queued' || latestWorkflow.status === 'in_progress') {
+        setWorkflowState({
+          tone: 'running',
+          title: latestWorkflow.status === 'queued' ? '查询排队中' : '正在查询',
+          detail: 'GitHub Actions 正在处理最近一次查询。',
+          url: latestWorkflow.run?.html_url,
+        });
+      } else if (latestWorkflow.status === 'completed' && latestWorkflow.conclusion !== 'success') {
+        setWorkflowState({
+          tone: 'error',
+          title: '最近一次后台查询失败',
+          detail: `GitHub Actions 结束状态：${latestWorkflow.conclusion || 'unknown'}。`,
+          url: latestWorkflow.run?.html_url,
+        });
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '加载失败');
     } finally {
@@ -524,7 +540,12 @@ function App() {
             />
           )}
           {hasLoadedInitialData && tab === 'results' && (
-            <ResultsTab loading={busy === 'loading'} results={results} onRefresh={loadAll} />
+            <ResultsTab
+              loading={busy === 'loading'}
+              results={results}
+              workflowState={workflowState}
+              onRefresh={loadAll}
+            />
           )}
         </div>
       </section>
@@ -833,7 +854,12 @@ function WorkflowStatusCard({ state }: { state: WorkflowUiState }) {
   );
 }
 
-function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; onRefresh: () => void }) {
+function ResultsTab(props: {
+  loading: boolean;
+  results: ResultsPayload | null;
+  workflowState: WorkflowUiState;
+  onRefresh: () => void;
+}) {
   const [nameFilter, setNameFilter] = useState('');
   const [startFilter, setStartFilter] = useState('');
   const [endFilter, setEndFilter] = useState('');
@@ -896,6 +922,21 @@ function ResultsTab(props: { loading: boolean; results: ResultsPayload | null; o
           {props.loading ? '刷新中' : '刷新'}
         </button>
       </div>
+      {props.workflowState.tone === 'error' && (
+        <div className="result-warning">
+          <AlertCircle size={18} />
+          <div>
+            <strong>最近一次后台查询失败</strong>
+            <span>当前列表显示的是上一次成功保存的结果，数据可能不是最新状态。</span>
+          </div>
+          {props.workflowState.url && (
+            <a href={props.workflowState.url} target="_blank" rel="noreferrer">
+              查看运行
+              <ExternalLink size={14} />
+            </a>
+          )}
+        </div>
+      )}
       <div className="result-filters" aria-label="查询结果筛选">
         <label className="filter-field name-filter">
           <span>营地名称</span>

@@ -757,6 +757,45 @@ button {
   overflow: hidden;
 }
 
+.result-warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 4px 0 12px;
+  padding: 13px 14px;
+  border: 1px solid #e7c7ba;
+  border-radius: 8px;
+  color: var(--danger);
+  background: #fff8f3;
+}
+
+.result-warning strong,
+.result-warning span {
+  display: block;
+}
+
+.result-warning strong {
+  font-size: 14px;
+}
+
+.result-warning span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.result-warning a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .result-filters {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) 170px 170px auto;
@@ -962,6 +1001,7 @@ button {
 
   .form-grid,
   .result-filters,
+  .result-warning,
   .search-line,
   .candidate-row,
   .workflow-status,
