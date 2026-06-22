@@ -16,6 +16,7 @@ from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
 from camply.containers.data_containers import SearchWindow
+from camply.providers.usedirect.variations import ReserveCalifornia
 from camply.search.search_usedirect import SearchReserveCalifornia
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -28,6 +29,17 @@ OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_SCAN_MONTHS = 6
 DEFAULT_MORRO_BAY_SCAN_MONTHS = 1
 DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
+RESERVE_CALIFORNIA_HEADERS = {
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Origin": "https://www.reservecalifornia.com",
+    "Referer": "https://www.reservecalifornia.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/145.0.0.0 Safari/537.36"
+    ),
+}
 DEFAULT_QUERY_INTERVAL_MINUTES = 15
 DEFAULT_STAY_NIGHTS = 2
 MIN_LEAD_DAYS = 3
@@ -64,6 +76,18 @@ UNICODE_SPACE_TRANSLATION = {
     ord("\u2007"): " ",
     ord("\u202f"): " ",
 }
+
+
+class CampWatchReserveCalifornia(ReserveCalifornia):
+    def __init__(self) -> None:
+        super().__init__()
+        self.headers = dict(RESERVE_CALIFORNIA_HEADERS)
+        self.session.headers.update(self.headers)
+        self.json_headers = self.headers | {"Content-Type": "application/json"}
+
+
+class CampWatchSearchReserveCalifornia(SearchReserveCalifornia):
+    provider_class = CampWatchReserveCalifornia
 
 
 @dataclass(frozen=True)
@@ -600,9 +624,7 @@ def search_recreation_gov_candidates(query: str) -> list[CampgroundCandidate]:
 
 
 def search_reserve_california_candidates(query: str) -> list[CampgroundCandidate]:
-    from camply.providers.usedirect.variations import ReserveCalifornia
-
-    provider = ReserveCalifornia()
+    provider = CampWatchReserveCalifornia()
     candidates: list[CampgroundCandidate] = []
     for search_query in derive_search_queries(query):
         try:
@@ -836,7 +858,7 @@ def collect_reserve_california_openings(
     openings: list[Opening] = []
 
     for campground in config.reserve_california_campgrounds:
-        search = SearchReserveCalifornia(
+        search = CampWatchSearchReserveCalifornia(
             search_window=search_window,
             recreation_area=[campground["park_id"]],
             campgrounds=[campground["campground_id"]],

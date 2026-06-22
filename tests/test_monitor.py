@@ -856,6 +856,13 @@ class MonitorTests(unittest.TestCase):
             "https://www.reservecalifornia.com/park/680/583",
         )
 
+    def test_reserve_california_provider_uses_fixed_browser_headers(self) -> None:
+        from yosemite_monitor.monitor import CampWatchReserveCalifornia
+
+        provider = CampWatchReserveCalifornia()
+        self.assertIn("Chrome/145.0.0.0", provider.session.headers["User-Agent"])
+        self.assertEqual(provider.session.headers["Origin"], "https://www.reservecalifornia.com")
+
     def test_schedule_event_exits_when_schedule_disabled(self) -> None:
         with TemporaryDirectory() as temp_dir:
             report_path = Path(temp_dir) / "run-report.json"
