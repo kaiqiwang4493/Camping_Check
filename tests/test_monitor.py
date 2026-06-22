@@ -701,6 +701,60 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(state["reserve_california_campgrounds"], [])
         self.assertEqual(state["unresolved"][0]["input"], "Nowhere Campground")
 
+    def test_empty_candidate_search_reuses_previous_resolution(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            resolved_path = Path(temp_dir) / "resolved-campgrounds.json"
+            resolved_path.write_text(
+                json.dumps(
+                    {
+                        "desired_inputs": ["Oceano Camp (sites 43-82)"],
+                        "recreation_gov_campgrounds": [],
+                        "reserve_california_campgrounds": [
+                            {
+                                "park_name": "Pismo SB",
+                                "park_id": 691,
+                                "campground_name": "Oceano Camp (sites 43-82)",
+                                "campground_id": "618",
+                            }
+                        ],
+                        "unresolved": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = Config(
+                clicksend_username=None,
+                clicksend_api_key=None,
+                phone_to=None,
+                phone_from=None,
+                gmail_smtp_user=None,
+                gmail_smtp_app_password=None,
+                email_to=None,
+                email_from=None,
+                dry_run=False,
+                scan_months=6,
+                morro_bay_scan_months=1,
+                state_path=Path("state.json"),
+                request_timeout=30,
+                report_path=Path("report.json"),
+                summary_path=Path("summary.md"),
+                campground_list=("Oceano Camp (sites 43-82)",),
+                resolved_campgrounds_path=resolved_path,
+            )
+
+            state = build_resolved_campgrounds_state(
+                config,
+                recreation_searcher=lambda query: [],
+                reserve_california_searcher=lambda query: [],
+                openai_selector=lambda query, candidates, config: None,
+                now=date(2026, 6, 21),
+            )
+
+        self.assertEqual(state["unresolved"], [])
+        self.assertEqual(state["fallback_inputs"], ["Oceano Camp (sites 43-82)"])
+        self.assertEqual(state["reserve_california_campgrounds"][0]["park_id"], 691)
+        self.assertEqual(state["reserve_california_campgrounds"][0]["campground_id"], "618")
+
     def test_resolved_state_can_override_default_monitoring_list(self) -> None:
         config = Config(
             clicksend_username=None,

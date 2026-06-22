@@ -745,6 +745,15 @@ def build_resolved_campgrounds_state(
     recreation_gov: list[dict] = []
     reserve_california: list[dict] = []
     unresolved: list[dict] = []
+    fallback_inputs: list[str] = []
+    previous = load_resolved_campgrounds_state(config.resolved_campgrounds_path)
+    previous_candidates = [
+        CampgroundCandidate(provider="Recreation.gov", **item)
+        for item in (previous or {}).get("recreation_gov_campgrounds", [])
+    ] + [
+        CampgroundCandidate(provider="ReserveCalifornia", **item)
+        for item in (previous or {}).get("reserve_california_campgrounds", [])
+    ]
 
     for query in config.campground_list:
         match, candidates = resolve_campground_input(
@@ -754,6 +763,10 @@ def build_resolved_campgrounds_state(
             reserve_california_searcher=reserve_california_searcher,
             openai_selector=openai_selector,
         )
+        if match is None and not candidates:
+            match = select_local_candidate(query, previous_candidates)
+            if match is not None:
+                fallback_inputs.append(query)
         if match is None:
             unresolved.append(
                 {
@@ -775,9 +788,9 @@ def build_resolved_campgrounds_state(
         "recreation_gov_campgrounds": recreation_gov,
         "reserve_california_campgrounds": reserve_california,
         "unresolved": unresolved,
+        "fallback_inputs": fallback_inputs,
         "changed_from_previous": False,
     }
-    previous = load_resolved_campgrounds_state(config.resolved_campgrounds_path)
     state["changed_from_previous"] = resolved_campgrounds_changed(previous, state)
     return state
 
@@ -797,6 +810,7 @@ def resolved_campgrounds_changed(previous: dict | None, current: dict) -> bool:
         "recreation_gov_campgrounds",
         "reserve_california_campgrounds",
         "unresolved",
+        "fallback_inputs",
     )
     return {key: previous.get(key) for key in keys} != {key: current.get(key) for key in keys}
 
@@ -1208,6 +1222,9 @@ def build_run_report(
         "unresolved_campgrounds": (
             resolved_campgrounds_state.get("unresolved", []) if resolved_campgrounds_state else []
         ),
+        "resolution_fallback_inputs": (
+            resolved_campgrounds_state.get("fallback_inputs", []) if resolved_campgrounds_state else []
+        ),
         "new_openings": [
             {
                 "campground_name": opening.campground_name,
@@ -1270,6 +1287,7 @@ def build_summary_markdown(report: dict, new_openings: list[Opening]) -> str:
                 f"- Recreation.gov campgrounds: `{len(report.get('resolved_recreation_gov_campgrounds', []))}`",
                 f"- ReserveCalifornia campgrounds: `{len(report.get('resolved_reserve_california_campgrounds', []))}`",
                 f"- Unresolved inputs: `{len(report.get('unresolved_campgrounds', []))}`",
+                f"- Previous resolutions reused: `{len(report.get('resolution_fallback_inputs', []))}`",
                 "",
             ]
         )
