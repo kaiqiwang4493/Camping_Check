@@ -4,6 +4,7 @@
     "Yosemite Upper Pines Campground",
     "Oceano Camp (sites 43-82)"
   ],
+  "fallback_inputs": [],
   "recreation_gov_campgrounds": [
     {
       "campground_id": "232447",
@@ -19,7 +20,7 @@
       "park_name": "Pismo SB"
     }
   ],
-  "resolved_at": "2026-06-22T02:06:09.911831+00:00",
+  "resolved_at": "2026-06-22T06:57:44.827710+00:00",
   "unresolved": [],
   "version": 1
 }
