@@ -13,10 +13,10 @@
   "email_configured": true,
   "email_messages_sent": 0,
   "email_partially_configured": false,
-  "email_status": "no_new_openings",
+  "email_status": "interval_skipped",
   "end_date": null,
-  "generated_at": "2026-06-28T10:35:45.343486+00:00",
-  "generated_at_display": "2026-06-28 03:35:45 PDT",
+  "generated_at": "2026-06-28T12:06:29.956375+00:00",
+  "generated_at_display": "2026-06-28 05:06:29 PDT",
   "lookahead_amount": 2,
   "lookahead_unit": "months",
   "new_openings": [],
@@ -25,26 +25,13 @@
   "require_weekend_or_holiday": true,
   "resolution_fallback_inputs": [],
   "resolved_campgrounds_changed": false,
-  "resolved_recreation_gov_campgrounds": [
-    {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines Campground",
-      "park_name": "Yosemite National Park, CA"
-    }
-  ],
-  "resolved_reserve_california_campgrounds": [
-    {
-      "campground_id": "618",
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "park_id": 691,
-      "park_name": "Pismo SB"
-    }
-  ],
+  "resolved_recreation_gov_campgrounds": [],
+  "resolved_reserve_california_campgrounds": [],
   "scan_months": 6,
   "schedule_enabled": true,
-  "skipped_reason": null,
+  "skipped_reason": "Only 90.7 minutes since last successful query; minimum interval is 120 minutes.",
   "sms_messages_sent": 0,
-  "sms_status": "no_new_openings",
+  "sms_status": "interval_skipped",
   "start_date": null,
   "stay_nights": 2,
   "unresolved_campgrounds": []
