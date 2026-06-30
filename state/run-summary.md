@@ -1,13 +1,13 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-06-30 08:59:21 PDT`
+- Generated at (America/Los_Angeles): `2026-06-30 10:52:24 PDT`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
-- Current openings found: `1`
-- New openings found: `1`
-- SMS status: `clicksend_not_configured`
+- Current openings found: `0`
+- New openings found: `0`
+- SMS status: `interval_skipped`
 - ClickSend configured: `False`
-- Email status: `sent`
+- Email status: `interval_skipped`
 - Email configured: `True`
 - Dynamic campground list: `True`
 - Dry run: `False`
@@ -15,13 +15,13 @@
 ### Resolved campgrounds
 
 - Changed from previous: `False`
-- Recreation.gov campgrounds: `1`
-- ReserveCalifornia campgrounds: `1`
+- Recreation.gov campgrounds: `0`
+- ReserveCalifornia campgrounds: `0`
 - Unresolved inputs: `0`
 - Previous resolutions reused: `0`
 
+> Skipped: Only 113.0 minutes since last successful query; minimum interval is 120 minutes.
+
 ### New openings
 
-| Park | Campground | Site | Stay Dates | Day | Day Type | Nights | Link |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Pismo SB | Oceano Camp (sites 43-82) | Campsite #OC77 | 2026-07-10 to 2026-07-12 | Friday | Weekend | 2 | [Book](https://www.reservecalifornia.com/park/691/618) |
+No new openings in this run.

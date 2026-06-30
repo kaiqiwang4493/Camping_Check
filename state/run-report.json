@@ -6,73 +6,32 @@
   ],
   "clicksend_configured": false,
   "clicksend_partially_configured": false,
-  "current_openings": [
-    {
-      "campground_id": "618",
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "campsite_id": null,
-      "date": "2026-07-10",
-      "day_name": "Friday",
-      "day_type": "Weekend",
-      "is_new": true,
-      "nights": 2,
-      "park_name": "Pismo SB",
-      "provider": "ReserveCalifornia",
-      "site": "Campsite #OC77",
-      "stay_dates": "2026-07-10 to 2026-07-12",
-      "url": "https://www.reservecalifornia.com/park/691/618"
-    }
-  ],
-  "current_openings_count": 1,
+  "current_openings": [],
+  "current_openings_count": 0,
   "date_mode": "relative",
   "dry_run": false,
   "email_configured": true,
-  "email_messages_sent": 1,
+  "email_messages_sent": 0,
   "email_partially_configured": false,
-  "email_status": "sent",
+  "email_status": "interval_skipped",
   "end_date": null,
-  "generated_at": "2026-06-30T15:59:21.376160+00:00",
-  "generated_at_display": "2026-06-30 08:59:21 PDT",
+  "generated_at": "2026-06-30T17:52:24.280121+00:00",
+  "generated_at_display": "2026-06-30 10:52:24 PDT",
   "lookahead_amount": 2,
   "lookahead_unit": "months",
-  "new_openings": [
-    {
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "campsite_id": null,
-      "date": "2026-07-10",
-      "day_name": "Friday",
-      "day_type": "Weekend",
-      "nights": 2,
-      "site": "Campsite #OC77",
-      "stay_dates": "2026-07-10 to 2026-07-12",
-      "url": "https://www.reservecalifornia.com/park/691/618"
-    }
-  ],
-  "new_openings_count": 1,
+  "new_openings": [],
+  "new_openings_count": 0,
   "query_interval_minutes": 120,
   "require_weekend_or_holiday": true,
   "resolution_fallback_inputs": [],
   "resolved_campgrounds_changed": false,
-  "resolved_recreation_gov_campgrounds": [
-    {
-      "campground_id": "232447",
-      "campground_name": "Upper Pines Campground",
-      "park_name": "Yosemite National Park, CA"
-    }
-  ],
-  "resolved_reserve_california_campgrounds": [
-    {
-      "campground_id": "618",
-      "campground_name": "Oceano Camp (sites 43-82)",
-      "park_id": 691,
-      "park_name": "Pismo SB"
-    }
-  ],
+  "resolved_recreation_gov_campgrounds": [],
+  "resolved_reserve_california_campgrounds": [],
   "scan_months": 6,
   "schedule_enabled": true,
-  "skipped_reason": null,
+  "skipped_reason": "Only 113.0 minutes since last successful query; minimum interval is 120 minutes.",
   "sms_messages_sent": 0,
-  "sms_status": "clicksend_not_configured",
+  "sms_status": "interval_skipped",
   "start_date": null,
   "stay_nights": 2,
   "unresolved_campgrounds": []
