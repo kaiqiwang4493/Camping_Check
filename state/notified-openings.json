@@ -1,5 +1,17 @@
 {
-  "active_openings": {},
-  "updated_at": "2026-07-03T14:55:30.966699+00:00",
+  "active_openings": {
+    "ReserveCalifornia|618|Campsite #OC60|2026-08-16|2": {
+      "campground_id": "618",
+      "campground_name": "Oceano Camp (sites 43-82)",
+      "campsite_id": null,
+      "date": "2026-08-16",
+      "nights": 2,
+      "park_name": "Pismo SB",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #OC60",
+      "url": "https://www.reservecalifornia.com/park/691/618"
+    }
+  },
+  "updated_at": "2026-07-03T18:58:16.435537+00:00",
   "version": 1
 }
