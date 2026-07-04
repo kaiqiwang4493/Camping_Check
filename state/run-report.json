@@ -6,17 +6,33 @@
   ],
   "clicksend_configured": false,
   "clicksend_partially_configured": false,
-  "current_openings": [],
-  "current_openings_count": 0,
+  "current_openings": [
+    {
+      "campground_id": "618",
+      "campground_name": "Oceano Camp (sites 43-82)",
+      "campsite_id": null,
+      "date": "2026-08-16",
+      "day_name": "Sunday",
+      "day_type": "Weekend",
+      "is_new": false,
+      "nights": 2,
+      "park_name": "Pismo SB",
+      "provider": "ReserveCalifornia",
+      "site": "Campsite #OC60",
+      "stay_dates": "2026-08-16 to 2026-08-18",
+      "url": "https://www.reservecalifornia.com/park/691/618"
+    }
+  ],
+  "current_openings_count": 1,
   "date_mode": "relative",
   "dry_run": false,
   "email_configured": true,
   "email_messages_sent": 0,
   "email_partially_configured": false,
-  "email_status": "interval_skipped",
+  "email_status": "no_new_openings",
   "end_date": null,
-  "generated_at": "2026-07-03T22:38:09.997471+00:00",
-  "generated_at_display": "2026-07-03 15:38:09 PDT",
+  "generated_at": "2026-07-04T13:59:39.765255+00:00",
+  "generated_at_display": "2026-07-04 06:59:39 PDT",
   "lookahead_amount": 2,
   "lookahead_unit": "months",
   "new_openings": [],
@@ -25,13 +41,26 @@
   "require_weekend_or_holiday": true,
   "resolution_fallback_inputs": [],
   "resolved_campgrounds_changed": false,
-  "resolved_recreation_gov_campgrounds": [],
-  "resolved_reserve_california_campgrounds": [],
+  "resolved_recreation_gov_campgrounds": [
+    {
+      "campground_id": "232447",
+      "campground_name": "Upper Pines Campground",
+      "park_name": "Yosemite National Park, CA"
+    }
+  ],
+  "resolved_reserve_california_campgrounds": [
+    {
+      "campground_id": "618",
+      "campground_name": "Oceano Camp (sites 43-82)",
+      "park_id": 691,
+      "park_name": "Pismo SB"
+    }
+  ],
   "scan_months": 6,
   "schedule_enabled": true,
-  "skipped_reason": "Only 65.7 minutes since last successful query; minimum interval is 120 minutes.",
+  "skipped_reason": null,
   "sms_messages_sent": 0,
-  "sms_status": "interval_skipped",
+  "sms_status": "no_new_openings",
   "start_date": null,
   "stay_nights": 2,
   "unresolved_campgrounds": []
