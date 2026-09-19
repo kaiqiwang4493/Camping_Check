@@ -14,9 +14,9 @@
   "email_messages_sent": 0,
   "email_partially_configured": false,
   "email_status": "schedule_disabled",
-  "end_date": null,
-  "generated_at": "2026-09-19T14:34:18.651641+00:00",
-  "generated_at_display": "2026-09-19 07:34:18 PDT",
+  "end_date": "2027-01-31",
+  "generated_at": "2026-09-19T17:24:39.574366+00:00",
+  "generated_at_display": "2026-09-19 10:24:39 PDT",
   "lookahead_amount": 2,
   "lookahead_unit": "months",
   "new_openings": [],
@@ -32,7 +32,7 @@
   "skipped_reason": "Scheduled queries are disabled by SCHEDULE_ENABLED=false.",
   "sms_messages_sent": 0,
   "sms_status": "schedule_disabled",
-  "start_date": null,
+  "start_date": "2026-11-01",
   "stay_nights": 2,
   "unresolved_campgrounds": []
 }
