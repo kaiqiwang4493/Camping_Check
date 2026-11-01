@@ -1,6 +1,6 @@
 ## Camping Monitor
 
-- Generated at (America/Los_Angeles): `2026-11-01 08:19:36 PST`
+- Generated at (America/Los_Angeles): `2026-11-01 12:35:06 PST`
 - Scan window: current month + next `5` month(s)
 - Query interval: `120` minute(s)
 - Current openings found: `0`
