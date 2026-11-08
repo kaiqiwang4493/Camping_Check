@@ -370,6 +370,12 @@ function App() {
         body: JSON.stringify({ plan_id: plan.id, results: providerResults }),
       });
       setResults(nextResults);
+      setStatus((previous) => previous ? {
+        ...previous,
+        generated_at_display: nextResults.generated_at_display,
+        current_openings_count: nextResults.current_openings_count,
+        new_openings_count: nextResults.new_openings_count,
+      } : previous);
       setWorkflowState({
         tone: 'success',
         title: `查询完成：${nextResults.current_openings_count} 个可用窗口`,
