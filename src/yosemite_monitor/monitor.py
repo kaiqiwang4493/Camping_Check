@@ -994,7 +994,7 @@ def load_state(path: Path) -> dict:
 
 
 def should_skip_for_interval(config: Config, previous_state: dict) -> tuple[bool, str | None]:
-    if config.dry_run:
+    if config.dry_run or os.getenv("GITHUB_EVENT_NAME") == "workflow_dispatch":
         return False, None
 
     updated_at_raw = previous_state.get("updated_at")
@@ -1406,6 +1406,22 @@ def write_json(path: Path, payload: dict) -> None:
         handle.write("\n")
 
 
+def preserve_results_on_skip(config: Config, skipped_report: dict) -> dict:
+    if not config.report_path.exists():
+        return skipped_report
+    previous = json.loads(config.report_path.read_text(encoding="utf-8"))
+    return previous | {
+        "skipped_reason": skipped_report["skipped_reason"],
+        "sms_status": skipped_report["sms_status"],
+        "email_status": skipped_report["email_status"],
+        "sms_messages_sent": 0,
+        "email_messages_sent": 0,
+        "new_openings": [],
+        "new_openings_count": 0,
+        "current_openings": [item | {"is_new": False} for item in previous.get("current_openings", [])],
+    }
+
+
 def main() -> int:
     config = load_config()
     if os.getenv("GITHUB_EVENT_NAME") == "schedule" and not config.schedule_enabled:
@@ -1421,6 +1437,7 @@ def main() -> int:
             resolved_campgrounds_state=None,
             skipped_reason=skipped_reason,
         )
+        report = preserve_results_on_skip(config, report)
         write_json(config.report_path, report)
         write_text(config.summary_path, build_summary_markdown(report, []))
         print(skipped_reason)
@@ -1442,6 +1459,7 @@ def main() -> int:
             resolved_campgrounds_state=None,
             skipped_reason=skipped_reason,
         )
+        report = preserve_results_on_skip(config, report)
         write_json(config.report_path, report)
         write_text(config.summary_path, build_summary_markdown(report, []))
         print(skipped_reason)

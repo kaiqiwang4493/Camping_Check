@@ -51,6 +51,14 @@ from yosemite_monitor.monitor import (
 
 
 class MonitorTests(unittest.TestCase):
+    def test_manual_ui_query_bypasses_schedule_interval(self) -> None:
+        with patch.dict(os.environ, {"GITHUB_EVENT_NAME": "workflow_dispatch"}, clear=True):
+            config = load_config()
+            self.assertEqual(
+                should_skip_for_interval(config, {"updated_at": datetime.now(timezone.utc).isoformat()}),
+                (False, None),
+            )
+
     def test_month_starts_rolls_over_year(self) -> None:
         starts = month_starts(date(2026, 11, 15), 4)
         self.assertEqual(

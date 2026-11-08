@@ -1,12 +1,6 @@
 name: Monitor Yosemite Camping
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/yosemite_monitor/**'
-      - 'pyproject.toml'
-      - '.github/workflows/monitor.yml'
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
@@ -62,8 +56,7 @@ jobs:
           END_DATE: ${{ vars.END_DATE }}
           REQUIRE_WEEKEND_OR_HOLIDAY: ${{ vars.REQUIRE_WEEKEND_OR_HOLIDAY }}
           SCHEDULE_ENABLED: ${{ vars.SCHEDULE_ENABLED }}
-          # Code pushes verify live queries without notifications or saved-state updates.
-          DRY_RUN: ${{ github.event_name == 'push' && 'true' || vars.DRY_RUN }}
+          DRY_RUN: ${{ vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
         run: python -u -m yosemite_monitor
@@ -85,7 +78,7 @@ jobs:
           fi
 
       - name: Comment on log issue
-        if: ${{ success() && github.event_name != 'push' && vars.LOG_ISSUE_NUMBER != '' }}
+        if: ${{ success() && vars.LOG_ISSUE_NUMBER != '' }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -107,7 +100,6 @@ jobs:
           LOG_ISSUE_NUMBER: ${{ vars.LOG_ISSUE_NUMBER }}
 
       - name: Commit updated state
-        if: ${{ success() && github.event_name != 'push' }}
         run: |
           if [ -z "$(git status --short -- state/notified-openings.json state/resolved-campgrounds.json state/run-report.json state/run-summary.md)" ]; then
             echo "No state changes to commit."

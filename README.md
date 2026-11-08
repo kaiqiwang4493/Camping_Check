@@ -12,7 +12,6 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Can optionally append each run to a fixed GitHub Issue as a log thread
 - Can optionally send Gmail SMTP email when new openings appear
 - Supports `workflow_dispatch` for manual runs
-- Changes to monitor code on `main` trigger a live dry-run verification in Actions, without notifications or saved-state updates
 - Supports `DRY_RUN=true` for testing without sending notifications or updating state
 - Supports a configurable minimum query interval in minutes via `QUERY_INTERVAL_MINUTES`
 - Filters results to campsites that can be booked for at least 2 consecutive nights
@@ -109,6 +108,10 @@ DRY_RUN=true python3 -m yosemite_monitor
 ## Web console
 
 This project now includes a Google/Firebase web console for managing the monitor.
+
+Manual **立即查询** scans fetch public provider availability in the user's browser, using the providers' allowed CORS access. This avoids the CloudFront 403 observed from GitHub-hosted and Google Cloud runners. Keep the page open until the scan completes. The authenticated backend validates all requested months, applies stay/date filters, and saves the report to GitHub only after a complete scan. Manual browser scans do not send SMS/email or change notification deduplication state.
+
+Scheduled scans still run in GitHub Actions and may be blocked by ReserveCalifornia. A skipped scheduled scan preserves the last successful results. The separate `Verify provider connectivity` workflow is available for manual environment diagnostics.
 
 - Frontend: `web/`, built with Vite, React, TypeScript, and Firebase Authentication
 - Backend API: `yosemite_monitor.web`, built with FastAPI for Cloud Run

@@ -1,3 +1,4 @@
+import { collectBrowserAvailability, type BrowserScanPlan } from './manualScan';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -84,6 +85,7 @@ type StatusPayload = {
 };
 
 type ResultsPayload = {
+  scan_source?: string;
   generated_at_display?: string;
   current_openings_count: number;
   new_openings_count: number;
@@ -238,7 +240,9 @@ function App() {
       setConfig(nextConfig);
       setStatus(nextStatus);
       setResults(nextResults);
-      if (latestWorkflow.status === 'queued' || latestWorkflow.status === 'in_progress') {
+      if (nextResults.scan_source === 'browser') {
+        setWorkflowState({ tone: 'success', title: '最近一次手动查询已完成', detail: nextResults.generated_at_display });
+      } else if (latestWorkflow.status === 'queued' || latestWorkflow.status === 'in_progress') {
         setWorkflowState({
           tone: 'running',
           title: latestWorkflow.status === 'queued' ? '查询排队中' : '正在查询',
@@ -354,94 +358,30 @@ function App() {
   async function triggerWorkflow() {
     setBusy('workflow');
     setNotice('');
-    setWorkflowState({
-      tone: 'running',
-      title: '正在启动 GitHub Actions 查询',
-      detail: '已发送触发请求，正在等待 GitHub 创建运行记录。',
-    });
+    setWorkflowState({ tone: 'running', title: '正在查询营地余位', detail: '查询期间请保持页面打开。' });
     try {
-      await apiFetch('/api/workflow/run', {
+      const plan = await apiFetch<BrowserScanPlan>('/api/scan/plan', { method: 'POST' });
+      const providerResults = await collectBrowserAvailability(plan, (detail) => {
+        setWorkflowState({ tone: 'running', title: '正在查询营地余位', detail });
+      });
+      setWorkflowState({ tone: 'running', title: '正在保存查询结果' });
+      const nextResults = await apiFetch<ResultsPayload>('/api/scan/complete', {
         method: 'POST',
-        body: JSON.stringify({ ref: 'main' }),
+        body: JSON.stringify({ plan_id: plan.id, results: providerResults }),
       });
-      setNotice('');
+      setResults(nextResults);
       setWorkflowState({
-        tone: 'running',
-        title: '正在查询',
-        detail: 'GitHub Actions 已触发，正在等待运行结果。',
+        tone: 'success',
+        title: `查询完成：${nextResults.current_openings_count} 个可用窗口`,
+        detail: '已保存，可到查询结果页查看日期和预订链接。',
       });
-      void pollWorkflowStatus();
     } catch (error) {
-      setWorkflowState({
-        tone: 'error',
-        title: '查询触发失败',
-        detail: error instanceof Error ? error.message : '触发失败',
-      });
-      setNotice(error instanceof Error ? error.message : '触发失败');
+      const detail = error instanceof Error ? error.message : '查询失败，请稍后重试。';
+      setWorkflowState({ tone: 'error', title: '查询未完成', detail });
+      setNotice(detail);
     } finally {
       setBusy(null);
     }
-  }
-
-  async function pollWorkflowStatus() {
-    const maxAttempts = 120;
-    const intervalMs = 10000;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      await sleep(attempt === 0 ? 3000 : intervalMs);
-      try {
-        const workflow = await apiFetch<WorkflowStatusPayload>('/api/workflow/latest');
-        const run = workflow.run;
-        if (workflow.status === 'queued' || workflow.status === 'in_progress') {
-          setWorkflowState({
-            tone: 'running',
-            title: workflow.status === 'queued' ? '查询排队中' : '正在查询',
-            detail: run?.run_number ? `GitHub Actions #${run.run_number} 正在运行。` : '正在等待 GitHub Actions 完成。',
-            url: run?.html_url,
-          });
-          continue;
-        }
-        if (workflow.status === 'completed') {
-          if (workflow.conclusion === 'success') {
-            const nextResults = await apiFetch<ResultsPayload>('/api/results');
-            setResults(nextResults);
-            const newCount = nextResults.new_openings_count || 0;
-            const currentCount = nextResults.current_openings_count || 0;
-            setWorkflowState({
-              tone: 'success',
-              title: newCount > 0 ? `查询完毕：发现 ${newCount} 个新可用营地` : '查询完毕：无新可用营地',
-              detail:
-                newCount > 0
-                  ? '可以到查询结果页查看详情和预订链接。'
-                  : currentCount > 0
-                    ? `没有新增结果，当前仍有 ${currentCount} 个可用窗口。`
-                    : '本次没有发现符合条件的可用营地。',
-              url: run?.html_url,
-            });
-            await loadAll();
-            return;
-          }
-          setWorkflowState({
-            tone: 'error',
-            title: '查询失败',
-            detail: `GitHub Actions 结束状态：${workflow.conclusion || 'unknown'}。`,
-            url: run?.html_url,
-          });
-          return;
-        }
-      } catch (error) {
-        setWorkflowState({
-          tone: 'error',
-          title: '查询状态读取失败',
-          detail: error instanceof Error ? error.message : '无法读取 GitHub Actions 状态。',
-        });
-        return;
-      }
-    }
-    setWorkflowState({
-      tone: 'error',
-      title: '查询仍在进行',
-      detail: '已停止自动刷新。GitHub Actions 可能仍在运行，请稍后到查询结果页刷新。',
-    });
   }
 
   if (!isFirebaseConfigured) {
@@ -714,7 +654,7 @@ function SettingsTab(props: {
     <section className="panel">
       <div className="section-heading">
         <div>
-          <span>GitHub Actions 会使用这些条件</span>
+          <span>手动查询和定时查询使用这些条件</span>
           <h1>查询条件</h1>
         </div>
         <label className="schedule-switch">
@@ -730,6 +670,7 @@ function SettingsTab(props: {
           <i className="ios-switch" aria-hidden="true" />
         </label>
       </div>
+      <p className="muted">手动查询期间请保持页面打开。州立营地的定时查询目前受服务方限制。</p>
       <div className="form-grid">
         <label className="field full">
           <span>查询时间</span>

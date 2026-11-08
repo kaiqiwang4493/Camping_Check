@@ -1,11 +1,6 @@
 name: Verify provider connectivity
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/provider-connectivity.yml'
-      - 'scripts/check_provider_connection.py'
 permissions:
   contents: read
 jobs:

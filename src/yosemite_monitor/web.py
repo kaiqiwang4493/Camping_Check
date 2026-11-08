@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth, credentials
 from pydantic import BaseModel, Field
 
+from yosemite_monitor.manual_scan import browser_scan_plan, report_from_browser
+
 from yosemite_monitor.monitor import (
     CampgroundCandidate,
     Config,
@@ -27,6 +29,7 @@ from yosemite_monitor.monitor import (
 GITHUB_API_BASE = "https://api.github.com"
 VARIABLE_NAMES = (
     "CAMPGROUND_LIST",
+    "WATCHED_CAMPGROUNDS_JSON",
     "QUERY_INTERVAL_MINUTES",
     "STAY_NIGHTS",
     "DATE_MODE",
@@ -72,6 +75,16 @@ class CampgroundSearchRequest(BaseModel):
 
 class WorkflowRunRequest(BaseModel):
     ref: str = "main"
+
+
+class BrowserScanResult(BaseModel):
+    key: str
+    payload: dict[str, Any]
+
+
+class BrowserScanCompletion(BaseModel):
+    plan_id: str
+    results: list[BrowserScanResult] = Field(max_items=200)
 
 
 class AuthenticatedUser(BaseModel):
@@ -137,6 +150,29 @@ def create_app() -> FastAPI:
     @app.get("/api/results")
     def get_results(_: AuthenticatedUser = Depends(require_user)) -> dict[str, Any]:
         return load_report() or empty_report()
+
+    @app.post("/api/scan/plan")
+    def plan_browser_scan(_: AuthenticatedUser = Depends(require_user)) -> dict:
+        try:
+            return current_browser_scan_plan()[1]
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post("/api/scan/complete")
+    def complete_browser_scan(
+        payload: BrowserScanCompletion,
+        _: AuthenticatedUser = Depends(require_user),
+    ) -> dict:
+        try:
+            config, plan = current_browser_scan_plan()
+            if payload.plan_id != plan["id"]:
+                raise HTTPException(409, "查询期间设置发生变化，请重新查询。")
+            previous = read_repository_json("state/notified-openings.json") or {}
+            report = report_from_browser(config, plan, [item.dict() for item in payload.results], previous)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        save_browser_report(report)
+        return report
 
     @app.post("/api/workflow/run")
     def run_workflow(
@@ -329,6 +365,10 @@ def config_from_variables(values: dict[str, str]) -> AppConfig:
         WatchCampground(campground_name=item)
         for item in split_campground_list(values.get("CAMPGROUND_LIST", ""))
     ]
+    if values.get("WATCHED_CAMPGROUNDS_JSON"):
+        detailed = [WatchCampground(**item) for item in json.loads(values["WATCHED_CAMPGROUNDS_JSON"])]
+        if [item.campground_name for item in detailed] == [item.campground_name for item in campgrounds]:
+            campgrounds = detailed
     interval_minutes = int_or_default(values.get("QUERY_INTERVAL_MINUTES"), 120)
     return AppConfig(
         watched_campgrounds=campgrounds,
@@ -358,6 +398,7 @@ def variables_from_config(config: AppConfig) -> dict[str, str]:
     ]
     return {
         "CAMPGROUND_LIST": "\n".join(dict.fromkeys(names)),
+        "WATCHED_CAMPGROUNDS_JSON": json.dumps([item.dict() for item in config.watched_campgrounds]),
         "QUERY_INTERVAL_MINUTES": str(settings.query_interval_hours * 60),
         "STAY_NIGHTS": str(settings.stay_nights),
         "DATE_MODE": settings.date_mode,
@@ -441,6 +482,36 @@ def load_report_from_github() -> dict[str, Any] | None:
         return None
     decoded = base64.b64decode(content).decode("utf-8")
     return json.loads(decoded)
+
+
+def read_repository_json(path: str) -> dict | None:
+    try:
+        payload = github_request(f"/repos/{github_repository_required()}/contents/{path}")
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return None
+        raise
+    return json.loads(base64.b64decode(payload["content"]))
+
+
+def current_browser_scan_plan() -> tuple[Config, dict]:
+    config = config_from_variables(read_variables())
+    resolved = read_repository_json("state/resolved-campgrounds.json") or {}
+    return browser_scan_plan(config, resolved)
+
+
+def save_browser_report(report: dict) -> None:
+    path = f"/repos/{github_repository_required()}/contents/state/run-report.json"
+    current = github_request(path)
+    github_request(
+        path, method="PUT", expected=(200, 201),
+        body={
+            "message": "Save browser camping availability scan [skip ci]",
+            "sha": current["sha"],
+            "content": base64.b64encode((json.dumps(report, indent=2, ensure_ascii=False) + "\n").encode()).decode(),
+            "branch": "main",
+        },
+    )
 
 
 def empty_report() -> dict[str, Any]:
