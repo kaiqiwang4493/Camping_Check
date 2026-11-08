@@ -1,6 +1,12 @@
 name: Monitor Yosemite Camping
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/yosemite_monitor/**'
+      - 'pyproject.toml'
+      - '.github/workflows/monitor.yml'
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
@@ -31,6 +37,7 @@ jobs:
         run: python -m pip install -e .
 
       - name: Run monitor
+        id: scan
         env:
           CLICKSEND_USERNAME: ${{ secrets.CLICKSEND_USERNAME }}
           CLICKSEND_API_KEY: ${{ secrets.CLICKSEND_API_KEY }}
@@ -55,15 +62,21 @@ jobs:
           END_DATE: ${{ vars.END_DATE }}
           REQUIRE_WEEKEND_OR_HOLIDAY: ${{ vars.REQUIRE_WEEKEND_OR_HOLIDAY }}
           SCHEDULE_ENABLED: ${{ vars.SCHEDULE_ENABLED }}
-          DRY_RUN: ${{ vars.DRY_RUN }}
+          # Code pushes verify live queries without notifications or saved-state updates.
+          DRY_RUN: ${{ github.event_name == 'push' && 'true' || vars.DRY_RUN }}
           REPORT_PATH: state/run-report.json
           SUMMARY_PATH: state/run-summary.md
-        run: python -m yosemite_monitor
+        run: python -u -m yosemite_monitor
 
       - name: Publish run summary
         if: always()
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
         run: |
-          if [ -f state/run-summary.md ]; then
+          if [ "$SCAN_OUTCOME" != "success" ]; then
+            echo "## Camping Monitor" >> "$GITHUB_STEP_SUMMARY"
+            echo "This scan did not complete. Previous saved results have not been replaced. See the Run monitor error above." >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f state/run-summary.md ]; then
             cat state/run-summary.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Camping Monitor" >> "$GITHUB_STEP_SUMMARY"
@@ -72,7 +85,7 @@ jobs:
           fi
 
       - name: Comment on log issue
-        if: ${{ success() && vars.LOG_ISSUE_NUMBER != '' }}
+        if: ${{ success() && github.event_name != 'push' && vars.LOG_ISSUE_NUMBER != '' }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -94,6 +107,7 @@ jobs:
           LOG_ISSUE_NUMBER: ${{ vars.LOG_ISSUE_NUMBER }}
 
       - name: Commit updated state
+        if: ${{ success() && github.event_name != 'push' }}
         run: |
           if [ -z "$(git status --short -- state/notified-openings.json state/resolved-campgrounds.json state/run-report.json state/run-summary.md)" ]; then
             echo "No state changes to commit."

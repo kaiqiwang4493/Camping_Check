@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
+from camply.containers import CampgroundFacility, RecreationArea
 from camply.containers.data_containers import SearchWindow
 from camply.providers.usedirect.variations import ReserveCalifornia
 from camply.search.search_usedirect import SearchReserveCalifornia
@@ -79,15 +80,48 @@ UNICODE_SPACE_TRANSLATION = {
 
 
 class CampWatchReserveCalifornia(ReserveCalifornia):
-    def __init__(self) -> None:
+    def __init__(self, known_campgrounds: Iterable[dict] = ()) -> None:
         super().__init__()
         self.headers = dict(RESERVE_CALIFORNIA_HEADERS)
         self.session.headers.update(self.headers)
         self.json_headers = self.headers | {"Content-Type": "application/json"}
+        # Availability only needs the resolved facilities and parks. Avoid fetching
+        # the statewide directory (which can return 403 on hosted runners).
+        known_campgrounds = list(known_campgrounds)
+        if known_campgrounds:
+            self.usedirect_campgrounds = {}
+            self.usedirect_rec_areas = {}
+            self.usedirect_unit_categories = {}
+            self.usedirect_unit_type_groups = {}
+            for campground in known_campgrounds:
+                facility_id = int(campground["campground_id"])
+                park_id = int(campground["park_id"])
+                self.usedirect_campgrounds[facility_id] = CampgroundFacility(
+                    facility_id=facility_id,
+                    facility_name=campground["campground_name"],
+                    recreation_area_id=park_id,
+                    recreation_area=campground["park_name"],
+                )
+                self.usedirect_rec_areas[park_id] = RecreationArea(
+                    recreation_area_id=park_id,
+                    recreation_area=campground["park_name"],
+                    recreation_area_location="CA",
+                )
+            self.metadata_refreshed = True
 
 
 class CampWatchSearchReserveCalifornia(SearchReserveCalifornia):
     provider_class = CampWatchReserveCalifornia
+
+    def __init__(self, *, known_campgrounds: Iterable[dict] = (), **kwargs) -> None:
+        resolved = tuple(known_campgrounds)
+
+        class ResolvedReserveCalifornia(CampWatchReserveCalifornia):
+            def __init__(self) -> None:
+                super().__init__(known_campgrounds=resolved)
+
+        self.provider_class = ResolvedReserveCalifornia
+        super().__init__(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -859,12 +893,14 @@ def collect_reserve_california_openings(
 
     for campground in config.reserve_california_campgrounds:
         search = CampWatchSearchReserveCalifornia(
+            known_campgrounds=[campground],
             search_window=search_window,
             recreation_area=[campground["park_id"]],
             campgrounds=[campground["campground_id"]],
             nights=1,
         )
-        for campsite in search.get_matching_campsites(search_once=True, log=False):
+        # Notifications and polling are handled by this monitor, not camply.
+        for campsite in search.get_all_campsites():
             park_id = int(campsite.recreation_area_id or campground["park_id"])
             facility_id = int(campsite.facility_id or campground["campground_id"])
             openings.append(
@@ -1415,7 +1451,17 @@ def main() -> int:
 
     resolved_campgrounds_state = None
     if config.campground_list:
-        resolved_campgrounds_state = build_resolved_campgrounds_state(config)
+        cached = load_resolved_campgrounds_state(config.resolved_campgrounds_path)
+        if (
+            cached
+            and cached.get("desired_inputs") == list(config.campground_list)
+            and cached.get("unresolved") == []
+            and (cached.get("recreation_gov_campgrounds") or cached.get("reserve_california_campgrounds"))
+        ):
+            resolved_campgrounds_state = cached | {"changed_from_previous": False}
+            print("Reusing resolved campground IDs for the unchanged watch list.")
+        else:
+            resolved_campgrounds_state = build_resolved_campgrounds_state(config)
         write_json(config.resolved_campgrounds_path, resolved_campgrounds_state)
         config = apply_resolved_campgrounds(config, resolved_campgrounds_state)
         print(

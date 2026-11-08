@@ -12,6 +12,7 @@ This project polls Recreation.gov for campsite availability at Yosemite's `Upper
 - Can optionally append each run to a fixed GitHub Issue as a log thread
 - Can optionally send Gmail SMTP email when new openings appear
 - Supports `workflow_dispatch` for manual runs
+- Changes to monitor code on `main` trigger a live dry-run verification in Actions, without notifications or saved-state updates
 - Supports `DRY_RUN=true` for testing without sending notifications or updating state
 - Supports a configurable minimum query interval in minutes via `QUERY_INTERVAL_MINUTES`
 - Filters results to campsites that can be booked for at least 2 consecutive nights
@@ -191,6 +192,8 @@ The Cloud Run service may be publicly reachable at the HTTP layer because Fireba
 - `REQUIRE_WEEKEND_OR_HOLIDAY=true` filters openings to Friday, Saturday, Sunday, and observed U.S. federal holidays.
 - If `CAMPGROUND_LIST` is set, it becomes the complete monitor list. The default campgrounds and `RESERVE_CALIFORNIA_CAMPGROUNDS_JSON` are not automatically added unless their names are also in `CAMPGROUND_LIST`.
 - `CAMPGROUND_LIST` accepts loose campground names separated by commas, semicolons, or new lines. The monitor resolves those names into provider IDs and writes the result to `state/resolved-campgrounds.json`.
+- Successful resolutions are reused while the campground list is unchanged. Changing the list triggers resolution again; remove `state/resolved-campgrounds.json` to force a directory refresh for an unchanged list.
+- ReserveCalifornia scans use the resolved park/facility details directly, avoiding the statewide directory download that can return HTTP 403 on GitHub runners. Availability is still fetched live. If the availability endpoint itself fails, the run fails and preserves the previous report and notification state.
 - `OPENAI_API_KEY` is optional. When present, OpenAI is used only to choose the best campground from candidates returned by Recreation.gov/RIDB and ReserveCalifornia metadata; it is not allowed to invent campground IDs.
 - The monitor does not log in to campground providers or add openings to a reservation cart. It only reports matching availability.
 
