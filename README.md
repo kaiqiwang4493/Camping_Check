@@ -109,7 +109,7 @@ DRY_RUN=true python3 -m yosemite_monitor
 
 This project now includes a Google/Firebase web console for managing the monitor.
 
-Manual **立即查询** scans fetch public provider availability in the user's browser, using the providers' allowed CORS access. This avoids the CloudFront 403 observed from GitHub-hosted and Google Cloud runners. Keep the page open until the scan completes. The authenticated backend validates all requested months, applies stay/date filters, and saves the report to GitHub only after a complete scan. Manual browser scans do not send SMS/email or change notification deduplication state.
+Manual **立即查询** scans fetch public provider availability in the user's browser, using the providers' allowed CORS access. This avoids the CloudFront 403 observed from GitHub-hosted and Google Cloud runners. Keep the page open until the scan completes. The authenticated backend validates all requested months, applies stay/date filters, and saves the report to private Cloud Storage only after a complete scan. Manual browser scans do not send SMS/email or change notification deduplication state.
 
 Scheduled scans still run in GitHub Actions and may be blocked by ReserveCalifornia. A skipped scheduled scan preserves the last successful results. The separate `Verify provider connectivity` workflow is available for manual environment diagnostics.
 
@@ -127,6 +127,7 @@ Set these on Cloud Run:
 - `FIREBASE_PROJECT_ID`: Firebase project ID
 - `GITHUB_TOKEN`: fine-grained GitHub token for the target repository
 - `GITHUB_REPOSITORY`: `owner/repo`
+- `BROWSER_REPORT_BUCKET`: private Cloud Storage bucket for manual query results; the Cloud Run service account needs object read/write access to this bucket
 - `OPENAI_API_KEY`: optional, used only to rank real campground candidates
 - `OPENAI_MODEL`: optional, defaults to `gpt-5.4-mini`
 - `GITHUB_WORKFLOW_ID`: optional, defaults to `monitor.yml`

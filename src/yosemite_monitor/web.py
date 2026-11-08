@@ -13,6 +13,8 @@ import firebase_admin
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth, credentials
+from google.cloud import storage
+from google.api_core.exceptions import NotFound, PreconditionFailed
 from pydantic import BaseModel, Field
 
 from yosemite_monitor.manual_scan import browser_scan_plan, report_from_browser
@@ -458,6 +460,9 @@ def candidate_to_dict(candidate: CampgroundCandidate | None) -> dict[str, Any] |
 
 def load_report() -> dict[str, Any] | None:
     report = load_report_from_github()
+    browser_report = load_browser_report()
+    if browser_report and (not report or browser_report.get("generated_at", "") > report.get("generated_at", "")):
+        return browser_report
     if report is not None:
         return report
     path = Path(os.getenv("REPORT_PATH", "state/run-report.json"))
@@ -501,17 +506,35 @@ def current_browser_scan_plan() -> tuple[Config, dict]:
 
 
 def save_browser_report(report: dict) -> None:
-    path = f"/repos/{github_repository_required()}/contents/state/run-report.json"
-    current = github_request(path)
-    github_request(
-        path, method="PUT", expected=(200, 201),
-        body={
-            "message": "Save browser camping availability scan [skip ci]",
-            "sha": current["sha"],
-            "content": base64.b64encode((json.dumps(report, indent=2, ensure_ascii=False) + "\n").encode()).decode(),
-            "branch": "main",
-        },
-    )
+    blob = browser_report_blob()
+    if blob is None:
+        raise HTTPException(503, "查询结果存储未配置。")
+    try:
+        blob.reload()
+        generation = blob.generation
+    except NotFound:
+        generation = 0
+    try:
+        blob.upload_from_string(json.dumps(report, ensure_ascii=False), content_type="application/json", if_generation_match=generation)
+    except PreconditionFailed as exc:
+        raise HTTPException(409, "另一次查询刚刚保存了结果，请刷新后重试。") from exc
+
+
+def browser_report_blob():
+    bucket = os.getenv("BROWSER_REPORT_BUCKET")
+    if not bucket:
+        return None
+    return storage.Client().bucket(bucket).blob("browser-run-report.json")
+
+
+def load_browser_report() -> dict | None:
+    blob = browser_report_blob()
+    if blob is None:
+        return None
+    try:
+        return json.loads(blob.download_as_text())
+    except NotFound:
+        return None
 
 
 def empty_report() -> dict[str, Any]:

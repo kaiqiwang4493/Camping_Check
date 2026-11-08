@@ -1,6 +1,6 @@
 import unittest
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from dataclasses import replace
@@ -47,6 +47,32 @@ class ManualScanTests(unittest.TestCase):
         self.assertEqual(preserved['scan_source'], 'browser')
         self.assertEqual(preserved['generated_at'], report['generated_at'])
         self.assertEqual(preserved['new_openings_count'], 0)
+
+    def test_storage_save_uses_generation_precondition(self):
+        from yosemite_monitor.web import save_browser_report
+        blob = Mock(generation=12)
+        with patch('yosemite_monitor.web.browser_report_blob', return_value=blob):
+            save_browser_report({'generated_at': '2026-11-08T18:00:00+00:00'})
+        self.assertEqual(blob.upload_from_string.call_args.kwargs['if_generation_match'], 12)
+
+    def test_storage_collision_preserves_existing_report(self):
+        from google.api_core.exceptions import PreconditionFailed
+        from fastapi import HTTPException
+        from yosemite_monitor.web import save_browser_report
+        blob = Mock(generation=12)
+        blob.upload_from_string.side_effect = PreconditionFailed('Changed')
+        with patch('yosemite_monitor.web.browser_report_blob', return_value=blob):
+            with self.assertRaises(HTTPException) as caught:
+                save_browser_report({'generated_at': '2026-11-08T18:00:00+00:00'})
+        self.assertEqual(caught.exception.status_code, 409)
+
+    def test_results_use_newest_successful_source(self):
+        from yosemite_monitor.web import load_report
+        old = {'generated_at': '2026-11-08T17:00:00+00:00'}
+        new = {'generated_at': '2026-11-08T18:00:00+00:00', 'scan_source': 'browser'}
+        with patch('yosemite_monitor.web.load_report_from_github', return_value=old), \
+             patch('yosemite_monitor.web.load_browser_report', return_value=new):
+            self.assertEqual(load_report(), new)
 
     def test_configuration_retains_selected_provider_ids(self):
         restored = config_from_variables(variables_from_config(self.config))
