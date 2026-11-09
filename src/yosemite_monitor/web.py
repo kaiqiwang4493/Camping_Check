@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import logging
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import firebase_admin
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request as APIRequest, Response, status
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth, credentials
 from google.cloud import storage
@@ -18,6 +23,8 @@ from google.api_core.exceptions import NotFound, PreconditionFailed
 from pydantic import BaseModel, Field
 
 from yosemite_monitor.manual_scan import browser_scan_plan, report_from_browser
+from yosemite_monitor.nas_queue import GCSStore, QueueError, QueueService, MAX_PART
+from yosemite_monitor.nas_protocol import scan_plan, search_plan, build_result
 
 from yosemite_monitor.monitor import (
     CampgroundCandidate,
@@ -67,7 +74,8 @@ class MonitorSettings(BaseModel):
 
 
 class AppConfig(BaseModel):
-    watched_campgrounds: list[WatchCampground] = Field(default_factory=list)
+    revision: int | None = None
+    watched_campgrounds: list[WatchCampground] = Field(default_factory=list, max_items=50)
     settings: MonitorSettings = Field(default_factory=MonitorSettings)
 
 
@@ -94,6 +102,86 @@ class AuthenticatedUser(BaseModel):
     email: str
 
 
+class JobRequest(BaseModel):
+    kind: str = Field(default='scan', regex='^(scan|search)$')
+    query: str | None = Field(default=None, max_length=200)
+
+
+class AttemptRequest(BaseModel):
+    attempt_id: str = Field(min_length=1, max_length=80)
+
+
+class FailureRequest(AttemptRequest):
+    provider: str | None = None
+    status_code: int | None = None
+    error: str = Field(default='UnknownError', max_length=100)
+
+
+class MailUpdateRequest(AttemptRequest):
+    action: str = Field(regex='^(begin|sent|unknown|retry)$')
+    error: str | None = Field(default=None, max_length=200)
+
+
+def nas_enabled():
+    return os.getenv('NAS_ENABLED', '').lower() == 'true'
+
+
+@lru_cache(maxsize=1)
+def queue_service():
+    bucket = os.getenv('BROWSER_REPORT_BUCKET')
+    if not bucket:
+        raise HTTPException(503, 'NAS 存储未配置。')
+    return QueueService(GCSStore(bucket), scan_plan, build_result, search_plan)
+
+
+def get_queue():
+    if not nas_enabled():
+        raise HTTPException(503, 'NAS 模式尚未启用。')
+    return queue_service()
+
+
+def require_worker(authorization: str | None = Header(default=None), queue: QueueService = Depends(get_queue)):
+    token = authorization[7:] if authorization and authorization.startswith('Bearer ') else ''
+    return queue.authenticate(token)
+
+
+@lru_cache(maxsize=1)
+def github_jwks():
+    return jwt.PyJWKClient('https://token.actions.githubusercontent.com/.well-known/jwks',
+                          lifespan=3600, timeout=10)
+
+
+def require_mailer(authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.startswith('Bearer '):
+        raise HTTPException(401, 'Missing GitHub OIDC token')
+    token = authorization[7:]
+    repository = github_repository_required()
+    repository_id = os.getenv('GITHUB_REPOSITORY_ID')
+    if not repository_id:
+        raise HTTPException(503, 'GitHub repository identity is not configured')
+    try:
+        key = github_jwks().get_signing_key_from_jwt(token).key
+        claims = jwt.decode(token, key, algorithms=['RS256'],
+            issuer='https://token.actions.githubusercontent.com', audience='camping-check-nas-mail',
+            options={'require': ['exp', 'iat', 'nbf', 'sub', 'repository', 'repository_id', 'ref', 'workflow_ref']})
+    except Exception as exc:
+        raise HTTPException(401, 'Invalid GitHub OIDC token') from exc
+    if (claims.get('repository') != repository or str(claims.get('repository_id')) != repository_id or
+            claims.get('ref') != 'refs/heads/main' or
+            claims.get('workflow_ref') != f'{repository}/.github/workflows/nas-maintenance.yml@refs/heads/main' or
+            claims.get('event_name') not in {'schedule', 'workflow_dispatch'}):
+        raise HTTPException(403, 'Workflow is not authorized')
+    return claims
+
+
+def kick_mailer():
+    try:
+        github_request(f'/repos/{github_repository_required()}/actions/workflows/nas-maintenance.yml/dispatches',
+                       method='POST', body={'ref': 'main'}, expected=(204,))
+    except Exception:
+        logging.getLogger(__name__).warning('Mail dispatch deferred to the next maintenance run')
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Camping Check API")
     app.add_middleware(
@@ -102,6 +190,14 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+    @app.exception_handler(QueueError)
+    async def handle_queue_error(request, exc):
+        return JSONResponse(status_code=exc.status, content={'detail': exc.detail})
+
+    @app.exception_handler(ValueError)
+    async def handle_invalid_data(request, exc):
+        return JSONResponse(status_code=422, content={'detail': str(exc)[:500]})
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -119,10 +215,14 @@ def create_app() -> FastAPI:
             "generated_at_display": report.get("generated_at_display") if report else None,
             "current_openings_count": report.get("current_openings_count", 0) if report else 0,
             "new_openings_count": report.get("new_openings_count", 0) if report else 0,
+            "nas_enabled": nas_enabled(),
+            "nas": get_queue().status() if nas_enabled() else None,
         }
 
     @app.get("/api/config", response_model=AppConfig)
     def get_config(_: AuthenticatedUser = Depends(require_user)) -> AppConfig:
+        if nas_enabled():
+            return AppConfig(**get_queue().read()['config'])
         variables = read_variables()
         return config_from_variables(variables)
 
@@ -131,6 +231,8 @@ def create_app() -> FastAPI:
         payload: AppConfig,
         _: AuthenticatedUser = Depends(require_user),
     ) -> AppConfig:
+        if nas_enabled():
+            return AppConfig(**get_queue().save_config(payload.dict(), payload.revision))
         update_variables(variables_from_config(payload))
         return payload
 
@@ -139,6 +241,8 @@ def create_app() -> FastAPI:
         payload: CampgroundSearchRequest,
         _: AuthenticatedUser = Depends(require_user),
     ) -> dict[str, Any]:
+        if nas_enabled():
+            return {'job': get_queue().enqueue('search', payload.query)}
         config = load_config()
         selected, candidates = resolve_campground_input(payload.query, config)
         ranked = rank_candidates(payload.query, candidates, selected)
@@ -155,6 +259,8 @@ def create_app() -> FastAPI:
 
     @app.post("/api/scan/plan")
     def plan_browser_scan(_: AuthenticatedUser = Depends(require_user)) -> dict:
+        if nas_enabled():
+            raise HTTPException(409, '查询已迁移到 NAS，请刷新页面后重试。')
         try:
             return current_browser_scan_plan()[1]
         except ValueError as exc:
@@ -165,6 +271,8 @@ def create_app() -> FastAPI:
         payload: BrowserScanCompletion,
         _: AuthenticatedUser = Depends(require_user),
     ) -> dict:
+        if nas_enabled():
+            raise HTTPException(409, '查询已迁移到 NAS，请刷新页面后重试。')
         try:
             config, plan = current_browser_scan_plan()
             if payload.plan_id != plan["id"]:
@@ -181,6 +289,8 @@ def create_app() -> FastAPI:
         payload: WorkflowRunRequest,
         _: AuthenticatedUser = Depends(require_user),
     ) -> dict[str, Any]:
+        if nas_enabled():
+            return get_queue().enqueue()
         workflow = os.getenv("GITHUB_WORKFLOW_ID", "monitor.yml")
         github_request(
             f"/repos/{github_repository_required()}/actions/workflows/{workflow}/dispatches",
@@ -192,7 +302,75 @@ def create_app() -> FastAPI:
 
     @app.get("/api/workflow/latest")
     def latest_workflow_run(_: AuthenticatedUser = Depends(require_user)) -> dict[str, Any]:
+        if nas_enabled():
+            return {'status': 'nas', 'run': None}
         return latest_workflow_status()
+
+    @app.post('/api/jobs')
+    def create_job(payload: JobRequest, _: AuthenticatedUser = Depends(require_user),
+                   queue: QueueService = Depends(get_queue)):
+        return queue.enqueue(payload.kind, payload.query)
+
+    @app.get('/api/jobs/{job_id}')
+    def job_status(job_id: str, _: AuthenticatedUser = Depends(require_user),
+                   queue: QueueService = Depends(get_queue)):
+        return queue.job_status(job_id)
+
+    @app.post('/api/notifications/test')
+    def test_notification(background: BackgroundTasks, _: AuthenticatedUser = Depends(require_user),
+                          queue: QueueService = Depends(get_queue)):
+        result = queue.test_mail()
+        background.add_task(kick_mailer)
+        return result
+
+    @app.post('/api/worker/claim')
+    def claim_job(device: str = Depends(require_worker), queue: QueueService = Depends(get_queue)):
+        job = queue.claim(device)
+        return job if job else Response(status_code=204)
+
+    @app.post('/api/worker/jobs/{job_id}/heartbeat')
+    def heartbeat(job_id: str, payload: AttemptRequest, device: str = Depends(require_worker),
+                  queue: QueueService = Depends(get_queue)):
+        return queue.heartbeat(job_id, payload.attempt_id, device)
+
+    @app.put('/api/worker/jobs/{job_id}/parts/{key}')
+    async def upload_part(job_id: str, key: str, attempt_id: str, request: APIRequest,
+                          device: str = Depends(require_worker), queue: QueueService = Depends(get_queue)):
+        if request.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+            raise HTTPException(415, 'Expected application/json')
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_PART:
+                raise HTTPException(413, 'Provider response exceeds 16 MiB')
+            body.extend(chunk)
+        return await run_in_threadpool(queue.put_part, job_id, attempt_id, device, key, bytes(body))
+
+    @app.post('/api/worker/jobs/{job_id}/complete')
+    def complete_job(job_id: str, payload: AttemptRequest, background: BackgroundTasks,
+                     device: str = Depends(require_worker), queue: QueueService = Depends(get_queue)):
+        result = queue.complete(job_id, payload.attempt_id, device)
+        if queue.status()['mail_pending']:
+            background.add_task(kick_mailer)
+        return result
+
+    @app.post('/api/worker/jobs/{job_id}/fail')
+    def fail_job(job_id: str, payload: FailureRequest, device: str = Depends(require_worker),
+                 queue: QueueService = Depends(get_queue)):
+        return queue.fail(job_id, payload.attempt_id, device, payload.provider, payload.status_code, payload.error)
+
+    @app.post('/api/internal/tick')
+    def maintenance(_: dict = Depends(require_mailer), queue: QueueService = Depends(get_queue)):
+        return queue.maintain()
+
+    @app.post('/api/internal/mail/claim')
+    def claim_mail(_: dict = Depends(require_mailer), queue: QueueService = Depends(get_queue)):
+        item = queue.claim_mail()
+        return item if item else Response(status_code=204)
+
+    @app.post('/api/internal/mail/{mail_id}')
+    def mail_update(mail_id: str, payload: MailUpdateRequest, _: dict = Depends(require_mailer),
+                    queue: QueueService = Depends(get_queue)):
+        return queue.mail_update(mail_id, payload.attempt_id, payload.action, payload.error)
 
     return app
 
@@ -459,6 +637,8 @@ def candidate_to_dict(candidate: CampgroundCandidate | None) -> dict[str, Any] |
 
 
 def load_report() -> dict[str, Any] | None:
+    if nas_enabled():
+        return get_queue().report()
     report = load_report_from_github()
     browser_report = load_browser_report()
     if browser_report and (not report or browser_report.get("generated_at", "") > report.get("generated_at", "")):

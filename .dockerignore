@@ -7,3 +7,8 @@ web/node_modules
 web/dist
 state
 .DS_Store
+
+web/.env
+docs
+nas_worker
+tests

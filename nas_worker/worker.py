@@ -20,11 +20,11 @@ import ssl
 import subprocess
 import sys
 import time
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener, HTTPSHandler
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 POLL_SECONDS = 120
 CHUNK = 64 * 1024
 MAX_PART = 16 * 1024 * 1024
@@ -130,10 +130,21 @@ def api(config, path, body=None, method="POST", file_path=None):
 def provider_request(item):
     """Reconstruct requests from typed fields; never execute a cloud-supplied URL."""
     provider = item["provider"]
+    operation = item.get("operation", "availability")
+    headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 CampingCheck/" + VERSION}
+    if operation != "availability":
+        if provider == "Recreation.gov" and operation == "search":
+            query = item.get("query")
+            if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
+                raise ValueError("Invalid search query")
+            return Request("https://www.recreation.gov/api/search?" + urlencode({
+                "q": query.strip(), "fq": "entity_type:campground", "size": 100, "start": 0}), headers=headers)
+        if provider == "ReserveCalifornia" and operation in ("places", "facilities"):
+            return Request(RC_ENDPOINT.rsplit("search/grid", 1)[0] + "fd/" + operation, headers=headers)
+        raise ValueError("Unsupported provider operation")
     campground_id = str(item["campground"]["campground_id"])
     if not re.fullmatch(r"[0-9]{1,12}", campground_id):
         raise ValueError("Invalid campground ID")
-    headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 CampingCheck/" + VERSION}
     if provider == "Recreation.gov":
         # Accept the current plan format, but use only its validated date.
         from urllib.parse import parse_qs
@@ -197,6 +208,17 @@ def job_path(job):
     return "/api/worker/jobs/" + job["job_id"]
 
 
+def durable_api(config, path, body=None, **kwargs):
+    """Retry only operations whose server transitions are idempotent."""
+    for attempt in range(3):
+        try:
+            return api(config, path, body, **kwargs)
+        except (URLError, TimeoutError, OSError) as error:
+            if (isinstance(error, HTTPError) and error.code < 500) or attempt == 2:
+                raise
+            time.sleep(2 ** (attempt + 1))
+
+
 def execute(root, job_file):
     config = read_config(root)
     job = bounded_json(job_file)
@@ -220,19 +242,12 @@ def execute(root, job_file):
             # The hash identifies a planned request without putting raw keys in URLs.
             key = hashlib.sha256(item["key"].encode()).hexdigest()
             path = base + "/parts/" + key + "?attempt_id=" + job["attempt_id"]
-            for attempt in range(3):
-                try:
-                    api(config, path, method="PUT", file_path=part)
-                    break
-                except HTTPError as error:
-                    if error.code < 500 or attempt == 2:
-                        raise
-                    time.sleep(2 ** (attempt + 1))
+            durable_api(config, path, method="PUT", file_path=part)
             part.unlink()  # Reclaim immediately after the server acknowledges the part.
             if index + 1 < len(requests):
                 time.sleep(1.1)
         # Completion must be idempotent server-side; response loss does not consume a second alert.
-        api(config, base + "/complete", identity)
+        durable_api(config, base + "/complete", identity)
     except Exception as error:
         failure = dict(identity, provider=provider, error=type(error).__name__,
                        status_code=getattr(error, "code", None))

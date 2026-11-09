@@ -3,11 +3,13 @@
 This is the NAS-side executor, compatible with the DS418play's existing Python
 3.8.12. It has no pip, Docker, browser, or cloud SDK dependencies.
 
-**Deployment status:** the cloud job APIs, device registration, website job UI,
-and cloud email processing described in the implementation plan are not yet
-implemented. The NAS installation is deliberately stopped and unconfigured.
-Installing this component alone does not enable scheduled campground checks or
-email notifications. Existing production workflows have not been switched over.
+The NAS polls the private cloud queue every two minutes. Both providers' availability
+and campground searches execute on the NAS. Website settings are versioned in
+Cloud Storage; changing them invalidates unfinished jobs using old settings.
+Manual queries update results without sending mail or consuming notification state.
+Scheduled queries create durable email records when new matching openings appear.
+The current owner setting keeps scheduled queries paused; enable them in the website
+when desired. Stopping the NAS in DSM also stops manual task pickup.
 
 ## Install
 
@@ -24,7 +26,7 @@ configuration is preserved. No NAS packages or system services are modified.
 
 The root contains `current`, `releases`, `config.json`, `state`, `work`, and
 `logs`. Never commit `config.json` or a device token. The worker must receive a
-revocable, device-scoped token after the backend protocol is ready; no Gmail,
+revocable, device-scoped token through a private deployment file; no Gmail,
 GitHub, or booking account credentials belong here.
 
 ## DSM Task Scheduler
@@ -58,20 +60,20 @@ and no new output logs will accumulate there while saving is disabled.
 
 ## Resources and verification
 
-- Idle task pickup is fixed at 120 seconds. This is separate from the future
-  cloud scan interval (default two hours, controlled by website settings).
+- Idle task pickup is fixed at 120 seconds. This is separate from the cloud
+  scan interval (default two hours, controlled by website settings).
 - One job child at a time; it exits after every scan. Its parent handles leases
   every 45 seconds and enforces a ten-minute job budget.
 - Responses stream in 64 KiB chunks with a 16 MiB per-response limit. The NAS
-  executor does not parse provider JSON; the cloud must validate it.
+  executor does not parse provider JSON; the cloud validates it.
 - Uploaded response files are removed after acknowledgement. Job folders are
   removed when the child ends. Orphans older than 15 minutes are reclaimed;
   total temporary work has a 64 MiB admission budget.
 - Logs rotate at 5 MiB, with two backups (15 MiB total). No tokens or raw
   responses are logged. No memory-cache flushing or system swap changes.
-- Only hardcoded Recreation.gov and ReserveCalifornia availability endpoints
+- Only hardcoded Recreation.gov and ReserveCalifornia availability and catalog endpoints
   are used. Redirects and proxy inheritance are disabled; TLS remains verified.
-- A 403 fails without retry. Cloud-side provider cooldown is still required.
+- A 403 fails without retry. The cloud applies a 30-minute provider cooldown for 403/429 responses.
 
 Test without importing the main Python 3.11+ project:
 
@@ -88,7 +90,7 @@ of Oceano (618) and Upper Pines (232447) returned validated HTTP 200 responses;
 the combined diagnostic's peak RSS was 25,188 KiB (about 24.6 MiB). This is a
 small probe, not a measurement of a complete six-month scan or idle daemon.
 
-## Worker protocol to implement on the backend
+## Worker protocol
 
 Every request uses the device token in the Authorization header. The configured
 API base must be an HTTPS origin.
@@ -103,6 +105,40 @@ API base must be an HTTPS origin.
 
 `requests` currently accepts the typed fields produced by `browser_scan_plan`:
 `key`, `provider`, `campground`, and a validated month or ReserveCalifornia date
-range. Raw supplied URLs are never used as destinations. Search/catalog jobs are
-not implemented in this version. Cloud and NAS integration tests are required
-before enabling the configuration and cutting over the website or Actions.
+range. Raw supplied URLs are never used as destinations. Search jobs accept only
+`search` for Recreation.gov and `places` / `facilities` for ReserveCalifornia.
+
+## Cloud and notifications
+
+`nas/control.json` in the existing private GCS bucket is updated using generation
+preconditions. It contains configuration revisions, job leases and the notification
+outbox. Provider payloads, reports and notification baselines are immutable objects.
+Only complete, validated, current attempts can replace the latest successful report.
+A failed query never turns an old result into a fresh empty result.
+
+Jobs have 120-second leases and at most three attempts. Old attempts cannot upload
+or commit after a lease is reclaimed. Scheduled scans use the configured interval;
+manual scans do not postpone the next scheduled scan. Provider data is kept at most
+seven days unless referenced by a current report, job or pending notification.
+Maintenance prunes terminal job/mail records and unreferenced objects. This policy
+applies only to this project's `nas/` prefixes, not unrelated bucket data.
+
+GitHub Actions runs `nas-maintenance.yml` every ten minutes and on completion when
+mail is waiting. It uses the existing Gmail secrets. A short-lived GitHub OIDC token
+must match the immutable repository ID, main branch, workflow path, issuer, audience
+and scheduled/manual event. NAS credentials cannot access email or user settings.
+The cloud stores only the NAS token hash; rotate the device token to revoke access.
+
+Mail is leased before sending and marked `sending` immediately before SMTP delivery.
+Ambiguous delivery is retained as `unknown` and never automatically duplicated.
+Definite failures get at most three attempts. Changing filters cancels unsent mail
+for previous filters. SMTP acceptance confirms sending, not inbox placement.
+
+Deployment requires `NAS_ENABLED=true`, `GITHUB_REPOSITORY_ID=1191031735`, and the
+existing `BROWSER_REPORT_BUCKET` on Cloud Run. The GitHub variable `NAS_ENABLED=true`
+disables the legacy cloud provider scan and enables the outbox sender. Device tokens
+and Firebase user tokens have separate endpoints and permissions.
+
+Run all cloud tests with `python3 -m unittest discover -s tests -p 'test_*.py'` and
+build the UI with `npm --prefix web run build`. The standalone NAS tests also run
+on its actual Python 3.8.12 interpreter. No booking account or shopping cart is used.

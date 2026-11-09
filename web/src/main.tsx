@@ -1,5 +1,5 @@
 import { collectBrowserAvailability, type BrowserScanPlan } from './manualScan';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   CalendarDays,
@@ -50,6 +50,7 @@ type MonitorSettings = {
 };
 
 type AppConfig = {
+  revision?: number;
   watched_campgrounds: WatchCampground[];
   settings: MonitorSettings;
 };
@@ -74,7 +75,23 @@ type Opening = {
   is_new?: boolean;
 };
 
+type NasJob = {
+  job_id: string; status: string; trigger: string; error?: string;
+  received_count: number; part_count: number; config_revision: number;
+  result?: { candidates: SearchCandidate[] };
+};
+
+function nasJobState(job?: NasJob | null): WorkflowUiState {
+  if (!job) return { tone: 'idle', title: '等待首次 NAS 查询' };
+  if (job.status === 'queued') return { tone: 'running', title: '等待 NAS 领取任务', detail: 'NAS 每两分钟领取一次任务；页面可以关闭。' };
+  if (job.status === 'running') return { tone: 'running', title: 'NAS 正在查询', detail: `已获取 ${job.received_count}/${job.part_count} 份数据；页面可以关闭。` };
+  if (job.status === 'succeeded') return { tone: 'success', title: 'NAS 查询已完成', detail: job.trigger === 'manual' ? '结果已保存。手动查询不发送邮件。' : '结果已保存，新增空位会进入邮件通知队列。' };
+  return { tone: 'error', title: '本次查询未完成', detail: job.error || '上次成功结果已保留。' };
+}
+
 type StatusPayload = {
+  nas_enabled?: boolean;
+  nas?: { online: boolean; last_seen_at?: number; latest_job?: NasJob; mail_pending: number; mail_unknown: number; schedule_error?: string };
   status: string;
   user_email: string;
   github_configured: boolean;
@@ -184,6 +201,7 @@ function openingDate(opening: Opening): string {
 }
 
 function App() {
+  const displayedJob = useRef<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [tab, setTab] = useState<Tab>('watch');
@@ -220,7 +238,9 @@ function App() {
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Request failed: ${response.status}`);
+        let detail = text;
+        try { detail = JSON.parse(text).detail || text; } catch { /* plain HTTP error */ }
+        throw new Error(typeof detail === 'string' ? detail : `Request failed: ${response.status}`);
       }
       return response.json() as Promise<T>;
     },
@@ -240,7 +260,9 @@ function App() {
       setConfig(nextConfig);
       setStatus(nextStatus);
       setResults(nextResults);
-      if (nextResults.scan_source === 'browser') {
+      if (nextStatus.nas_enabled) {
+        setWorkflowState(nasJobState(nextStatus.nas?.latest_job));
+      } else if (nextResults.scan_source === 'browser') {
         setWorkflowState({ tone: 'success', title: '最近一次手动查询已完成', detail: nextResults.generated_at_display });
       } else if (latestWorkflow.status === 'queued' || latestWorkflow.status === 'in_progress') {
         setWorkflowState({
@@ -277,6 +299,38 @@ function App() {
     void loadAll();
   }, [loadAll]);
 
+  useEffect(() => {
+    if (!status?.nas_enabled || !user || !isAllowed) return;
+    let cancelled = false;
+    let timer: number;
+    async function refresh() {
+      try {
+        const next = await apiFetch<StatusPayload>('/api/status');
+        if (cancelled) return;
+        setStatus(next);
+        if (next.nas?.schedule_error) setNotice(next.nas.schedule_error);
+        setWorkflowState(nasJobState(next.nas?.latest_job));
+        if (next.nas?.latest_job?.status === 'succeeded' && displayedJob.current !== next.nas.latest_job.job_id) {
+          const report = await apiFetch<ResultsPayload>('/api/results');
+          if (!cancelled) { setResults(report); displayedJob.current = next.nas.latest_job.job_id; }
+        }
+      } catch (error) {
+        if (!cancelled) setNotice(error instanceof Error ? error.message : '状态同步失败');
+      } finally {
+        if (!cancelled) timer = window.setTimeout(refresh, 10000);
+      }
+    }
+    timer = window.setTimeout(refresh, 5000);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [status?.nas_enabled, apiFetch, user, isAllowed]);
+
+  async function testEmail() {
+    try {
+      await apiFetch('/api/notifications/test', { method: 'POST' });
+      setNotice('测试邮件已进入发送队列，请稍候检查邮箱。');
+    } catch (error) { setNotice(error instanceof Error ? error.message : '测试邮件提交失败'); }
+  }
+
   async function handleSignIn() {
     if (!auth) return;
     await signInWithPopup(auth, googleProvider);
@@ -292,11 +346,22 @@ function App() {
     setBusy('search');
     setNotice('');
     try {
-      const payload = await apiFetch<{ candidates: SearchCandidate[] }>('/api/campgrounds/search', {
+      const payload = await apiFetch<{ candidates?: SearchCandidate[]; job?: NasJob }>('/api/campgrounds/search', {
         method: 'POST',
         body: JSON.stringify({ query: query.trim() }),
       });
-      setCandidates(payload.candidates || []);
+      if (payload.job) {
+        setNotice('搜索已提交，等待 NAS 领取（通常两分钟内）。');
+        let job = payload.job;
+        const deadline = Date.now() + 31 * 60 * 1000;
+        while (['queued', 'running'].includes(job.status) && Date.now() < deadline) {
+          await sleep(5000);
+          job = await apiFetch<NasJob>(`/api/jobs/${job.job_id}`);
+        }
+        if (job.status !== 'succeeded') throw new Error(job.error || '搜索仍在等待，请稍后重试。');
+        setCandidates(job.result?.candidates || []);
+        setNotice('营地搜索完成。');
+      } else setCandidates(payload.candidates || []);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '查找失败');
     } finally {
@@ -358,8 +423,14 @@ function App() {
   async function triggerWorkflow() {
     setBusy('workflow');
     setNotice('');
-    setWorkflowState({ tone: 'running', title: '正在查询营地余位', detail: '查询期间请保持页面打开。' });
     try {
+      if (status?.nas_enabled) {
+        const job = await apiFetch<NasJob>('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'scan' }) });
+        setWorkflowState(nasJobState(job));
+        setNotice('已使用保存的条件提交查询。NAS 每两分钟领取一次任务，页面可以关闭。');
+        return;
+      }
+      setWorkflowState({ tone: 'running', title: '正在查询营地余位', detail: '查询期间请保持页面打开。' });
       const plan = await apiFetch<BrowserScanPlan>('/api/scan/plan', { method: 'POST' });
       const providerResults = await collectBrowserAvailability(plan, (detail) => {
         setWorkflowState({ tone: 'running', title: '正在查询营地余位', detail });
@@ -419,8 +490,8 @@ function App() {
         <div className="status-chip">
           <CheckCircle2 size={18} />
           <div>
-            <strong>服务在线</strong>
-            <span>{status?.github_configured ? 'GitHub 已连接' : '等待 GitHub 配置'}</span>
+            <strong>{status?.nas_enabled ? (status.nas?.online ? 'NAS 在线' : 'NAS 暂未连接') : '服务在线'}</strong>
+            <span>{status?.nas_enabled ? '每两分钟领取任务' : (status?.github_configured ? 'GitHub 已连接' : '等待 GitHub 配置')}</span>
           </div>
         </div>
         <div className="rail-bottom">
@@ -483,6 +554,10 @@ function App() {
               onChange={(settings) => setConfig({ ...config, settings })}
               onSave={() => saveConfig(config)}
               onRun={triggerWorkflow}
+              nasEnabled={Boolean(status?.nas_enabled)}
+              onTestEmail={testEmail}
+              mailPending={status?.nas?.mail_pending || 0}
+              mailUnknown={status?.nas?.mail_unknown || 0}
             />
           )}
           {hasLoadedInitialData && tab === 'results' && (
@@ -512,7 +587,7 @@ function LoadingPanel({ text }: { text: string }) {
     <section className="panel loading-panel" aria-live="polite">
       <div className="loading-spinner" />
       <strong>{text}</strong>
-      <span>正在从后端同步 GitHub Actions 配置和最近一次报告。</span>
+      <span>正在同步查询条件和最近一次报告。</span>
     </section>
   );
 }
@@ -571,7 +646,7 @@ function WatchTab(props: {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span>AI 只从真实候选中选择</span>
+            <span>从官方营地目录查找</span>
             <h1>查找营地</h1>
           </div>
         </div>
@@ -653,6 +728,10 @@ function SettingsTab(props: {
   onChange: (settings: MonitorSettings) => void;
   onSave: () => void;
   onRun: () => void;
+  nasEnabled: boolean;
+  onTestEmail: () => void;
+  mailPending: number;
+  mailUnknown: number;
 }) {
   const settings = props.settings;
   const update = (patch: Partial<MonitorSettings>) => props.onChange({ ...settings, ...patch });
@@ -676,7 +755,8 @@ function SettingsTab(props: {
           <i className="ios-switch" aria-hidden="true" />
         </label>
       </div>
-      <p className="muted">手动查询期间请保持页面打开。州立营地的定时查询目前受服务方限制。</p>
+      <p className="muted">{props.nasEnabled ? 'NAS 每两分钟领取任务，按下方间隔查询。修改后请先保存；关闭页面不影响运行。手动查询只更新结果，定时查询发现新空位时发送邮件。' : '手动查询期间请保持页面打开。'}</p>
+      {props.nasEnabled && <p className="muted">待发送邮件：{props.mailPending}。{props.mailUnknown > 0 && `有 ${props.mailUnknown} 封邮件发送状态未确认，为避免重复发送已暂停重试。`}</p>}
       <div className="form-grid">
         <label className="field full">
           <span>查询时间</span>
@@ -772,11 +852,12 @@ function SettingsTab(props: {
           <Settings size={16} />
           保存设置
         </button>
-        <button className="line-button" onClick={props.onRun} disabled={props.busy === 'workflow'}>
+        <button className="line-button" onClick={props.onRun} disabled={props.busy === 'workflow' || props.workflowState.tone === 'running'}>
           <Clock3 size={16} />
           立即查询
         </button>
       </div>
+      {props.nasEnabled && <button className="line-button" onClick={props.onTestEmail}>发送测试邮件</button>}
       <WorkflowStatusCard state={props.workflowState} />
     </section>
   );

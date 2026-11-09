@@ -176,7 +176,7 @@ gcloud run deploy camping-check-api \
 
 Set secrets such as `GITHUB_TOKEN` and `OPENAI_API_KEY` with Secret Manager or Cloud Run secret environment variables rather than committing them to the repository.
 
-The Cloud Run service may be publicly reachable at the HTTP layer because Firebase Hosting needs to call it, but every `/api/**` endpoint verifies the Firebase ID token and rejects users whose email is not in `ALLOWED_EMAILS`.
+The Cloud Run service is publicly reachable at the HTTP layer. User endpoints verify Firebase ID tokens and the `ALLOWED_EMAILS` allowlist. NAS endpoints require a scoped device token; internal notification endpoints require a GitHub OIDC token restricted to this repository and its main-branch maintenance workflow.
 
 ## Behavior notes
 
@@ -216,3 +216,18 @@ ClickSend's official documentation notes that SMS messages containing URLs may b
 Official docs used for the SMS API:
 
 - [ClickSend SMS docs](https://developers.clicksend.com/docs/messaging/sms/other/view-inbound-sms)
+
+## NAS execution mode
+
+See [NAS installation and operations](nas_worker/README.md). Both providers are
+queried from the home NAS, which picks up cloud jobs every 120 seconds. Website
+configuration changes take effect without editing NAS files or restarting it.
+Manual checks update the website only. Scheduled checks notify by email through
+the existing GitHub Actions Gmail configuration; the website controls whether
+scheduled checks are enabled and their interval. No shopping carts or reservations
+are created. The legacy Actions provider scanner is disabled by `NAS_ENABLED=true`.
+
+Cloud Run handles authentication, queue transactions, result filtering and reports;
+GCS stores bounded state and results. Those existing Google Cloud services still
+have usage-based billing even though Actions sends the email. No extra cloud VM,
+Docker package on the NAS, proxy service or Campflare subscription is required.

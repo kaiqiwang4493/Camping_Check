@@ -27,6 +27,7 @@ def browser_scan_plan(app_config, resolved: dict, today: date | None = None) -> 
         end_date=date.fromisoformat(settings.end_date) if settings.end_date else None,
         lookahead_amount=settings.lookahead_amount, lookahead_unit=settings.lookahead_unit,
         stay_nights=settings.stay_nights, require_weekend_or_holiday=settings.require_weekend_or_holiday,
+        query_interval_minutes=settings.query_interval_hours * 60, schedule_enabled=settings.schedule_enabled,
     )
     start, end = scan_window_for_config(config, today)
     candidates = [
@@ -69,32 +70,42 @@ def browser_scan_plan(app_config, resolved: dict, today: date | None = None) -> 
     return config, plan
 
 
+def openings_from_response(item: dict, payload: dict) -> list[Opening]:
+    campground = item['campground']
+    if not isinstance(payload, dict):
+        raise ValueError('供应商未返回有效的余位数据。')
+    if item['provider'] == 'Recreation.gov':
+        if not isinstance(payload.get('campsites'), dict):
+            raise ValueError('Recreation.gov 未返回有效的余位数据。')
+        return parse_recreation_openings(campground['park_name'], campground['campground_name'], campground['campground_id'], payload)
+    grid = UseDirectAvailabilityResponse(**payload)
+    if grid.Facility is None or grid.Facility.FacilityId != int(campground['campground_id']):
+        raise ValueError('ReserveCalifornia 返回的营地编号不匹配。')
+    openings = []
+    for unit in (grid.Facility.Units or {}).values():
+        for slice in (unit.Slices or {}).values():
+            if slice.IsFree and not slice.IsBlocked and not slice.IsWalkin:
+                openings.append(Opening(
+                    provider='ReserveCalifornia', park_name=campground['park_name'],
+                    campground_name=campground['campground_name'], campground_id=campground['campground_id'],
+                    site=str(unit.Name), date=slice.Date.isoformat(),
+                    url=build_reserve_california_url(campground['park_id'], campground['campground_id']),
+                    campsite_id=str(unit.UnitId),
+                ))
+    return openings
+
+
 def report_from_browser(config: Config, plan: dict, results: list[dict], previous: dict) -> dict:
     by_key = {result['key']: result['payload'] for result in results}
     if len(by_key) != len(results) or set(by_key) != {item['key'] for item in plan['requests']}:
         raise ValueError('查询数据不完整，请重新查询；原有结果已保留。')
     openings = []
     for item in plan['requests']:
-        campground = item['campground']
-        payload = by_key[item['key']]
-        if item['provider'] == 'Recreation.gov':
-            if not isinstance(payload.get('campsites'), dict):
-                raise ValueError('Recreation.gov 未返回有效的余位数据。')
-            openings.extend(parse_recreation_openings(campground['park_name'], campground['campground_name'], campground['campground_id'], payload))
-        else:
-            grid = UseDirectAvailabilityResponse(**payload)
-            if grid.Facility is None or grid.Facility.FacilityId != int(campground['campground_id']):
-                raise ValueError('ReserveCalifornia 返回的营地编号不匹配。')
-            for unit in (grid.Facility.Units or {}).values():
-                for slice in (unit.Slices or {}).values():
-                    if slice.IsFree and not slice.IsBlocked and not slice.IsWalkin:
-                        openings.append(Opening(
-                            provider='ReserveCalifornia', park_name=campground['park_name'],
-                            campground_name=campground['campground_name'], campground_id=campground['campground_id'],
-                            site=str(unit.Name), date=slice.Date.isoformat(),
-                            url=build_reserve_california_url(campground['park_id'], campground['campground_id']),
-                            campsite_id=str(unit.UnitId),
-                        ))
+        openings.extend(openings_from_response(item, by_key[item['key']]))
+    return report_from_openings(config, plan, openings, previous)
+
+
+def report_from_openings(config: Config, plan: dict, openings: list[Opening], previous: dict) -> dict:
     openings = list({opening.key: opening for opening in openings}.values())
     openings = filter_date_window(openings, date.fromisoformat(plan['start_date']), date.fromisoformat(plan['end_date']))
     openings = filter_minimum_stay(openings, config.stay_nights)
