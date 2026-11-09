@@ -142,3 +142,26 @@ and Firebase user tokens have separate endpoints and permissions.
 Run all cloud tests with `python3 -m unittest discover -s tests -p 'test_*.py'` and
 build the UI with `npm --prefix web run build`. The standalone NAS tests also run
 on its actual Python 3.8.12 interpreter. No booking account or shopping cart is used.
+
+## Deployment verification — 2026-11-08 Pacific time
+
+- Website and Cloud Run deployed; code `e499198`, Cloud Run revision
+  `camping-check-api-00010-rw4`. All 91 project tests passed locally and in CI;
+  the 13 standalone worker tests also passed on the NAS's Python 3.8.12.
+- A manual query submitted through the authenticated website completed all four
+  provider requests and returned 256 matching two-night windows across Upper Pines
+  and Oceano. No availability email was sent and the old notification baseline was
+  unchanged. The Oceano search completed all three catalog requests and returned
+  three candidates. Results are a point-in-time observation, not reserved inventory.
+- The existing mail configuration sent one clearly labelled test message through
+  the OIDC-authenticated Actions workflow; the owner confirmed receipt.
+- Sampled parent-plus-child RSS peaked at 48,996 KiB (47.8 MiB); idle RSS was
+  24,608 KiB (24.0 MiB). This measures the current two-campground, two-month scan
+  and a catalog search, not a guarantee for every future workload. The work
+  directory returned to empty after both jobs; logs occupied 4 KiB at verification.
+- Real Stop → Watchdog left the worker stopped; Start and a repeated Start created
+  only one worker. Reboot was not performed. Existing DSM Boot/Watchdog tasks remain
+  enabled and DSM output saving remains disabled.
+- **Current preference: scheduled scans stay paused; manual queries only.** NAS
+  stays running to claim manually submitted tasks every 120 seconds. The saved
+  scan interval remains two hours for use if the owner later enables scheduling.
